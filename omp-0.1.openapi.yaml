@@ -1,0 +1,409 @@
+openapi: 3.1.0
+info:
+  title: Open Memory Protocol (OMP)
+  version: "0.1.0"
+  description: |
+    **One API for any AI memory provider.**
+
+    OMP defines a standard interface for AI memory backends — Mem0, Supermemory,
+    Zep, Postgres, Notion, or any custom store. App developers write against this
+    spec once; users (or apps) choose which backend powers it.
+
+    This document is the canonical machine-readable spec. SDKs, adapters, and
+    conformance tests are generated from it.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  contact:
+    name: OMP Working Group
+    url: https://github.com/openmem/omp
+
+servers:
+  - url: https://api.example.com/v0
+    description: Reference server (replace with provider URL)
+
+tags:
+  - name: memories
+    description: CRUD over individual memories
+  - name: search
+    description: Retrieval and ranked context
+  - name: meta
+    description: Capabilities, audit, and protocol metadata
+
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+
+paths:
+  /capabilities:
+    get:
+      tags: [meta]
+      summary: Get provider capabilities
+      description: Returns which OMP features and verbs this backend supports.
+      operationId: getCapabilities
+      security: []
+      responses:
+        "200":
+          description: Capabilities of the provider
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+
+  /memories:
+    post:
+      tags: [memories]
+      summary: Add a memory
+      operationId: addMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryInput"
+      responses:
+        "201":
+          description: Memory created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Memory"
+        "400": { $ref: "#/components/responses/InvalidRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ScopeDenied" }
+
+    get:
+      tags: [memories]
+      summary: List memories
+      operationId: listMemories
+      parameters:
+        - { name: user_id, in: query, required: true, schema: { type: string } }
+        - { name: scope,   in: query, required: false, schema: { type: string }, description: "Glob pattern, e.g. coding/*" }
+        - { name: tag,     in: query, required: false, schema: { type: string } }
+        - { name: since,   in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: until,   in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: limit,   in: query, required: false, schema: { type: integer, default: 50, maximum: 500 } }
+        - { name: cursor,  in: query, required: false, schema: { type: string }, description: "Pagination cursor" }
+      responses:
+        "200":
+          description: Page of memories
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemoryPage"
+
+  /memories/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [memories]
+      summary: Get a memory by id
+      operationId: getMemory
+      responses:
+        "200":
+          description: Memory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Memory" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    patch:
+      tags: [memories]
+      summary: Update or supersede a memory
+      operationId: updateMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryUpdate"
+      responses:
+        "200":
+          description: Updated memory
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Memory" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+    delete:
+      tags: [memories]
+      summary: Forget a memory
+      operationId: deleteMemory
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /memories/search:
+    get:
+      tags: [search]
+      summary: Semantic + keyword search
+      operationId: searchMemories
+      parameters:
+        - { name: q,        in: query, required: true,  schema: { type: string } }
+        - { name: user_id,  in: query, required: true,  schema: { type: string } }
+        - { name: scope,    in: query, required: false, schema: { type: string } }
+        - { name: limit,    in: query, required: false, schema: { type: integer, default: 10, maximum: 100 } }
+        - { name: min_score,in: query, required: false, schema: { type: number, format: float } }
+      responses:
+        "200":
+          description: Ranked search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: "#/components/schemas/SearchResult" }
+
+  /context:
+    post:
+      tags: [search]
+      summary: Get a prompt-ready, ranked context block
+      operationId: getContext
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query, user_id]
+              properties:
+                query:        { type: string }
+                user_id:      { type: string }
+                scope:        { type: string }
+                token_budget: { type: integer, default: 500 }
+      responses:
+        "200":
+          description: Ranked context block
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContextBlock" }
+
+  /audit:
+    get:
+      tags: [meta]
+      summary: Audit log of memory access
+      operationId: getAudit
+      parameters:
+        - { name: user_id, in: query, required: true,  schema: { type: string } }
+        - { name: app,     in: query, required: false, schema: { type: string } }
+        - { name: since,   in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: limit,   in: query, required: false, schema: { type: integer, default: 100 } }
+      responses:
+        "200":
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    Memory:
+      type: object
+      required: [id, content, user_id, created_at]
+      properties:
+        id:               { type: string, example: "mem_abc123" }
+        content:          { type: string, example: "User prefers pnpm over npm" }
+        user_id:          { type: string, example: "kek" }
+        scope:            { type: string, example: "coding/preferences" }
+        tags:
+          type: array
+          items: { type: string }
+        source:           { $ref: "#/components/schemas/MemorySource" }
+        confidence:       { type: number, format: float, minimum: 0, maximum: 1 }
+        valid_from:       { type: string, format: date-time }
+        valid_to:         { type: string, format: date-time, nullable: true }
+        supersedes:
+          type: array
+          items: { type: string }
+        embedding_model:  { type: string }
+        created_at:       { type: string, format: date-time }
+        updated_at:       { type: string, format: date-time }
+
+    MemoryInput:
+      type: object
+      required: [content, user_id]
+      properties:
+        content: { type: string }
+        user_id: { type: string }
+        scope:   { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        source:     { $ref: "#/components/schemas/MemorySource" }
+        confidence: { type: number, format: float }
+        valid_from: { type: string, format: date-time }
+        valid_to:   { type: string, format: date-time, nullable: true }
+        supersedes:
+          type: array
+          items: { type: string }
+
+    MemoryUpdate:
+      type: object
+      properties:
+        content:    { type: string }
+        scope:      { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        confidence: { type: number, format: float }
+        valid_to:   { type: string, format: date-time, nullable: true }
+        supersedes:
+          type: array
+          items: { type: string }
+
+    MemorySource:
+      type: object
+      properties:
+        app:  { type: string, example: "cursor" }
+        type:
+          type: string
+          enum: [extracted, explicit, imported]
+        ref:  { type: string, description: "Opaque pointer back to source" }
+
+    MemoryPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Memory" }
+        next_cursor: { type: string, nullable: true }
+
+    SearchResult:
+      type: object
+      required: [memory, score]
+      properties:
+        memory: { $ref: "#/components/schemas/Memory" }
+        score:  { type: number, format: float }
+
+    ContextBlock:
+      type: object
+      required: [text, citations]
+      properties:
+        text:
+          type: string
+          description: "Pre-ranked, prompt-ready text block"
+        citations:
+          type: array
+          items:
+            type: object
+            properties:
+              memory_id: { type: string }
+              score:     { type: number, format: float }
+        token_count: { type: integer }
+
+    Capabilities:
+      type: object
+      required: [omp_version, provider, verbs, features]
+      properties:
+        omp_version: { type: string, example: "0.1" }
+        provider:    { type: string, example: "mem0" }
+        verbs:
+          type: array
+          items:
+            type: string
+            enum: [add, search, get, update, delete, list, context, audit]
+        features:
+          type: object
+          properties:
+            vector_search:        { type: boolean }
+            keyword_search:       { type: boolean }
+            graph_queries:        { type: boolean }
+            temporal:             { type: boolean }
+            scopes:
+              type: string
+              enum: [native, tags, none]
+            max_content_length:   { type: integer }
+            supports_e2e:         { type: boolean }
+            supports_audit:       { type: boolean }
+            supports_supersession:{ type: boolean }
+        limits:
+          type: object
+          properties:
+            rate_limit_per_minute: { type: integer }
+            max_search_results:    { type: integer }
+
+    AuditEntry:
+      type: object
+      properties:
+        timestamp: { type: string, format: date-time }
+        app:       { type: string }
+        action:
+          type: string
+          enum: [add, search, get, update, delete, list, context]
+        memory_id: { type: string, nullable: true }
+        scope:     { type: string, nullable: true }
+        request_id:{ type: string }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, type]
+          properties:
+            code:
+              type: string
+              enum:
+                - unauthorized
+                - scope_denied
+                - not_found
+                - invalid_request
+                - rate_limited
+                - unsupported_capability
+                - provider_error
+            message:    { type: string }
+            type:
+              type: string
+              enum: [auth, not_found, invalid, rate_limited, provider_error]
+            provider:   { type: string }
+            request_id: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ScopeDenied:
+      description: Caller lacks the required scope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    InvalidRequest:
+      description: Malformed request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
