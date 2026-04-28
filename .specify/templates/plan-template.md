@@ -31,7 +31,17 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+For each Principle in `.specify/memory/constitution.md`, state how this plan
+satisfies it (one row per principle). Any "violation" row MUST also appear
+in **Complexity Tracking** below with a justification.
+
+| Principle | How this plan satisfies it |
+|---|---|
+| I. Spec-First, Single Source of Truth (NON-NEGOTIABLE) | [How OpenAPI/spec drives this feature] |
+| II. Adapter Conformance via Shared Contract Tests (NON-NEGOTIABLE) | [How tests gate this feature] |
+| III. Backward and Forward Compatibility | [How required fields/verbs are preserved; unknown fields tolerated] |
+| IV. Provider Neutrality and User Sovereignty | [How no new vendor coupling is introduced; reference path stays first-class] |
+| V. Open Extensibility via Namespaced Fields | [How `x-<provider>` extensions remain optional and ignorable] |
 
 ## Project Structure
 

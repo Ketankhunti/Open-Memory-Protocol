@@ -337,7 +337,7 @@ components:
             max_content_length:   { type: integer }
             supports_e2e:         { type: boolean }
             supports_audit:       { type: boolean }
-            supports_supersession:{ type: boolean }
+            supports_supersession: { type: boolean }
         limits:
           type: object
           properties:
@@ -354,7 +354,7 @@ components:
           enum: [add, search, get, update, delete, list, context]
         memory_id: { type: string, nullable: true }
         scope:     { type: string, nullable: true }
-        request_id:{ type: string }
+        request_id: { type: string }
 
     Error:
       type: object

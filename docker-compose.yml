@@ -1,0 +1,25 @@
+services:
+  postgres:
+    # pgvector/pgvector ships an official PG16 image with the `vector`
+    # extension pre-built — same image used by the testcontainers fixture
+    # in `sdk-python/tests/conftest.py` and by the GitHub Actions service
+    # container in `.github/workflows/ci.yml`.
+    image: pgvector/pgvector:pg16
+    container_name: omp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - omp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  omp_pgdata:
