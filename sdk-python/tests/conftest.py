@@ -12,10 +12,32 @@ import os
 import re
 from collections.abc import Iterator
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+
+
+def _load_dotenv() -> None:
+    """Populate ``os.environ`` from a repo-root ``.env`` (no overwrite)."""
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        env_file = parent / ".env"
+        if env_file.is_file():
+            for raw in env_file.read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip().strip("'\"")
+                if key and key not in os.environ:
+                    os.environ[key] = value
+            return
+
+
+_load_dotenv()
 
 # Use an env var so CI without docker can fall back to a real Postgres URL.
 _USE_TESTCONTAINER = os.environ.get("PG_URL") is None

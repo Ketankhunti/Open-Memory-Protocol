@@ -5,6 +5,12 @@
 **Status**: Draft
 **Input**: User description: "M2: PostgresAdapter connection pool replacing RLock; PassthroughAdapter native verb forwarding via httpx; Mem0/Supermemory/Letta translation adapters passing the existing contract suite; pytest-timeout in dev extras; second real provider in 02_switch_providers.py example."
 
+## Clarifications
+
+### Session 2026-04-28
+
+- Q: Which provider should `examples/02_switch_providers.py` (T032) pair with `postgres` to satisfy SC-008? → A: All three real providers (Mem0, Supermemory, Letta) using live API keys read from environment variables; the example skips any provider whose key is unset and prints a clear "set MEM0_API_KEY/SUPERMEMORY_API_KEY/LETTA_API_KEY to enable" hint instead of failing.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — Postgres adapter scales under concurrent load (Priority: P1) 🎯 MVP
@@ -102,7 +108,7 @@ A user already has data in Mem0 (or Supermemory or Letta). They install `openmem
 #### Tooling & examples
 
 - **FR-017**: `pytest-timeout` MUST be added to the `[dev]` extras and a default per-test timeout MUST be configured in `pyproject.toml` so a test cannot hang the suite for more than the configured limit.
-- **FR-018**: `examples/02_switch_providers.py` MUST be updated to call `run(mem)` against two genuinely different providers (e.g. `provider="postgres"` and `provider="mem0"` or `provider="passthrough"`), demonstrating substitutability across providers, not configurations.
+- **FR-018**: `examples/02_switch_providers.py` MUST run the same `run(mem)` body against `postgres` and each of the three translation adapters (`mem0`, `supermemory`, `letta`) when their respective `*_API_KEY` env var is set. When a key is unset the provider MUST be skipped with a one-line hint (`set <KEY> to enable`) and the example MUST exit successfully as long as `postgres` plus at least one third-party provider ran.
 
 ### Key Entities
 
@@ -122,7 +128,7 @@ A user already has data in Mem0 (or Supermemory or Letta). They install `openmem
 - **SC-005**: Adding a brand-new adapter to the conformance matrix requires changing exactly two files (`conftest.py` for the fixture entry and `memory.py` for the `_resolve_adapter` mapping) — zero edits in any `test_contract_*.py` file.
 - **SC-006**: No test in the suite runs longer than the configured per-test timeout; the full suite completes in under 5 minutes on the standard CI runner.
 - **SC-007**: 100% of provider exceptions raised inside a translation adapter are caught and translated; the integration test that fuzzes adapter inputs sees zero non-`OMPError` exceptions reach the caller.
-- **SC-008**: `examples/02_switch_providers.py` runs the same `run(mem)` body against two real different providers and prints comparable outputs side-by-side.
+- **SC-008**: `examples/02_switch_providers.py` runs the same `run(mem)` body against `postgres` and every translation adapter whose `*_API_KEY` env var is set, prints comparable outputs side-by-side, and exits 0 whenever `postgres` plus ≥1 third-party provider succeeded.
 
 ## Assumptions
 
@@ -132,4 +138,4 @@ A user already has data in Mem0 (or Supermemory or Letta). They install `openmem
 - Credentials for the three providers are out of scope for the SDK itself — tests use mocks/recorded fixtures by default and live integration is opt-in via env vars (`MEM0_API_KEY`, `SUPERMEMORY_API_KEY`, `LETTA_API_KEY`).
 - Per-test timeout default: 30s. Tests that legitimately need more (e.g. concurrency stress) opt-in via `@pytest.mark.timeout(N)`.
 - `PassthroughAdapter` in M2 is sync-only (matches the rest of the SDK). Async support is deferred.
-- `02_switch_providers.py` will pair `postgres` with whichever of the three new providers is most reliable to demo (Mem0 has the most stable free tier, so likely choice — can be revised in the plan).
+- `02_switch_providers.py` runs `postgres` plus all three translation adapters (`mem0`, `supermemory`, `letta`) against the same `run(mem)` body using **live API keys** read from `MEM0_API_KEY` / `SUPERMEMORY_API_KEY` / `LETTA_API_KEY`. Providers whose keys are unset are skipped with a clear hint message; at least one third-party provider must be runnable for the example to satisfy SC-008.

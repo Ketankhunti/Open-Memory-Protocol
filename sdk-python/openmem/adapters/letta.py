@@ -80,7 +80,7 @@ class LettaAdapter(BaseAdapter):
                     "LettaAdapter requires the `letta-client` package; "
                     "run `pip install openmem[letta]`"
                 ) from exc
-            kwargs: dict[str, Any] = {"token": api_key}
+            kwargs: dict[str, Any] = {"api_key": api_key}
             if base_url:
                 kwargs["base_url"] = base_url
             self._client = Letta(**kwargs)
