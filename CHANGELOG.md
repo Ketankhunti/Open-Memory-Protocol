@@ -18,7 +18,25 @@ All notable changes to this project will be documented in this file.
 
 ### Added (US2 — Native passthrough)
 
-_Filled by T022._
+- `PassthroughAdapter` now implements every OMP verb against a native
+  OMP HTTP endpoint per the verb→HTTP mapping in
+  [`contracts/passthrough-http.md`](specs/002-m2-pool-passthrough-adapters/contracts/passthrough-http.md).
+- A persistent `httpx.Client` is held on the instance (FR-007); tests
+  inject `transport=` for in-process `MockTransport` shims.
+- New `__init__` kwargs `transport` and `timeout`; new `close()` method.
+- Capability gate: every verb calls `self._check_verb(verb)` before any
+  network I/O. Unadvertised verbs raise `UnsupportedCapabilityError`
+  with zero HTTP requests issued (FR-009, EC-003).
+- Error decoding shared via `openmem.adapters._http`:
+  OMP `Error` envelope → typed exception subclass; bare 4xx →
+  `InvalidRequestError`; bare 5xx → `ProviderError` (FR-008, FR-010).
+- Exactly one redirect is followed; a second 3xx raises `ProviderError`
+  ("redirect loop") (EC-004).
+- `Authorization: Bearer ...` is set on the client at construction time
+  and never appears in log records (FR-011).
+- `PassthroughAdapter` now passes the full shared contract suite via an
+  in-process `httpx.MockTransport` backed by `PostgresAdapter`
+  (SC-005: zero edits to `test_contract_*.py`).
 
 ### Added (US3 — Translation adapters)
 

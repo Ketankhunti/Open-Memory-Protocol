@@ -26,7 +26,7 @@ def test_passthrough_used_when_capabilities_returns_omp_version():
     fake_resp = MagicMock(status_code=200)
     fake_resp.json.return_value = _make_caps_payload()
     fake_resp.raise_for_status = MagicMock()
-    with patch("httpx.get", return_value=fake_resp):
+    with patch("httpx.Client.get", return_value=fake_resp):
         adapter = _resolve_adapter("anything", base_url="https://example.test")
     assert isinstance(adapter, PassthroughAdapter)
 
@@ -53,7 +53,7 @@ def test_capability_probe_is_cached():
     fake_resp = MagicMock(status_code=200)
     fake_resp.json.return_value = _make_caps_payload()
     fake_resp.raise_for_status = MagicMock()
-    with patch("httpx.get", return_value=fake_resp) as mock_get:
+    with patch("httpx.Client.get", return_value=fake_resp) as mock_get:
         mem = Memory(provider="passthrough", base_url="https://example.test")
         mem.capabilities()
         mem.capabilities()
@@ -68,5 +68,5 @@ def test_probe_returns_none_when_omp_version_missing():
     fake_resp = MagicMock(status_code=200)
     fake_resp.json.return_value = {"provider": "x"}  # no omp_version
     fake_resp.raise_for_status = MagicMock()
-    with patch("httpx.get", return_value=fake_resp):
+    with patch("httpx.Client.get", return_value=fake_resp):
         assert PassthroughAdapter._probe("https://example.test") is None

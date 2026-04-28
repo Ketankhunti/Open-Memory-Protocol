@@ -30,7 +30,7 @@
 
 - [X] T006 Create [sdk-python/openmem/adapters/_http.py](../../sdk-python/openmem/adapters/_http.py): shared `httpx.Client` factory + `decode_omp_error(response, provider)` helper that implements the order-of-evaluation rules from [contracts/passthrough-http.md](contracts/passthrough-http.md) §"Error mapping" (envelope → 4xx → 5xx → transport). Used by passthrough and translation adapters.
 - [X] T007 [P] Reserve `tests/adapters/fixtures/` directory under [sdk-python/tests/adapters](../../sdk-python/tests/adapters) with a single `.gitkeep`. Currently no JSON fixtures are required (R-004 was revised to use inline MagicMock / MockTransport setup); this directory is kept as the documented home should any adapter later need on-disk recordings.
-- [ ] T008 (DEFERRED to start of Phase 4 — US1 does not require it.) Add an `_omp_mock_server` session-scoped fixture to [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py) implementing an in-process OMP HTTP shim built on `httpx.MockTransport` and a dispatch dict keyed by `(method, path-template)`. The shim delegates writes to a fresh `PostgresAdapter` instance per session so it round-trips real data. Used by passthrough tests (R-002).
+- [X] T008 (DEFERRED to start of Phase 4 — US1 does not require it.) Add an `_omp_mock_server` session-scoped fixture to [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py) implementing an in-process OMP HTTP shim built on `httpx.MockTransport` and a dispatch dict keyed by `(method, path-template)`. The shim delegates writes to a fresh `PostgresAdapter` instance per session so it round-trips real data. Used by passthrough tests (R-002).
 
 **Checkpoint**: shared HTTP utilities + mock OMP server are available; user stories may now proceed in parallel.
 
@@ -74,7 +74,7 @@
 
 ### Tests for User Story 2 (FIRST)
 
-- [ ] T016 [P] [US2] Add [sdk-python/tests/adapters/test_passthrough_native.py](../../sdk-python/tests/adapters/test_passthrough_native.py) using `httpx.MockTransport`:
+- [X] T016 [P] [US2] Add [sdk-python/tests/adapters/test_passthrough_native.py](../../sdk-python/tests/adapters/test_passthrough_native.py) using `httpx.MockTransport`:
   - `test_each_verb_hits_correct_method_and_path` — table-driven against the [contracts/passthrough-http.md](contracts/passthrough-http.md) verb table; assert method, URL, body shape per verb.
   - `test_authorization_header_when_api_key_set` — assert `Authorization: Bearer …` is sent (FR-011).
   - `test_authorization_header_omitted_when_no_key` — no header.
@@ -89,12 +89,12 @@
 
 ### Implementation for User Story 2
 
-- [ ] T017 [US2] Rewrite [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): keep the `_probe` classmethod; replace each `_stub` verb with a real implementation per [contracts/passthrough-http.md](contracts/passthrough-http.md). Use a persistent `httpx.Client` stored on `self._client` constructed in `__init__` (or accepted via `transport=` kwarg for tests). Use the helpers from `_http.py` (T006).
-- [ ] T018 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): add a private `_check_verb(verb: str)` method that raises `UnsupportedCapabilityError` when `verb not in self._capabilities.verbs`; call it as the first line of every verb method (FR-009, EC-003).
-- [ ] T019 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): implement body serialization with `model.model_dump(mode="json", exclude_none=True)` and response parsing with `Model.model_validate(response.json())` per [contracts/passthrough-http.md](contracts/passthrough-http.md) §"Body serialization rules" (FR-007).
-- [ ] T020 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): add `close(self)` that closes `self._client`; ensure `User-Agent: openmem-python/{version}` header is set on the client.
-- [ ] T021 [US2] In [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py): add `passthrough_adapter` module-scoped fixture that constructs `PassthroughAdapter(base_url="http://omp.test", transport=_omp_mock_server)`; append `"passthrough"` to the `adapter` fixture's `params` and dispatch dict. **Do not edit any `test_contract_*.py` file** (SC-005).
-- [ ] T022 [US2] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Native passthrough" subsection of the `0.2.0` entry.
+- [X] T017 [US2] Rewrite [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): keep the `_probe` classmethod; replace each `_stub` verb with a real implementation per [contracts/passthrough-http.md](contracts/passthrough-http.md). Use a persistent `httpx.Client` stored on `self._client` constructed in `__init__` (or accepted via `transport=` kwarg for tests). Use the helpers from `_http.py` (T006).
+- [X] T018 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): add a private `_check_verb(verb: str)` method that raises `UnsupportedCapabilityError` when `verb not in self._capabilities.verbs`; call it as the first line of every verb method (FR-009, EC-003).
+- [X] T019 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): implement body serialization with `model.model_dump(mode="json", exclude_none=True)` and response parsing with `Model.model_validate(response.json())` per [contracts/passthrough-http.md](contracts/passthrough-http.md) §"Body serialization rules" (FR-007).
+- [X] T020 [US2] In [sdk-python/openmem/adapters/passthrough.py](../../sdk-python/openmem/adapters/passthrough.py): add `close(self)` that closes `self._client`; ensure `User-Agent: openmem-python/{version}` header is set on the client.
+- [X] T021 [US2] In [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py): add `passthrough_adapter` module-scoped fixture that constructs `PassthroughAdapter(base_url="http://omp.test", transport=_omp_mock_server)`; append `"passthrough"` to the `adapter` fixture's `params` and dispatch dict. **Do not edit any `test_contract_*.py` file** (SC-005).
+- [X] T022 [US2] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Native passthrough" subsection of the `0.2.0` entry.
 
 **Checkpoint**: US2 done — `Memory(base_url=...)` round-trips every verb; passthrough is in the conformance matrix.
 
