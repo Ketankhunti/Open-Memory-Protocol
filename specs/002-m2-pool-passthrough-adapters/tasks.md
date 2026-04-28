@@ -108,7 +108,7 @@
 
 ### Tests for User Story 3 (FIRST — one mapping unit-test file per adapter)
 
-- [ ] T023 [P] [US3] Add [sdk-python/tests/adapters/test_mem0_mapping.py](../../sdk-python/tests/adapters/test_mem0_mapping.py): mock the `mem0ai` client (e.g. via `unittest.mock.MagicMock` patched into the adapter's module). Cover:
+- [X] T023 [P] [US3] Add [sdk-python/tests/adapters/test_mem0_mapping.py](../../sdk-python/tests/adapters/test_mem0_mapping.py): mock the `mem0ai` client (e.g. via `unittest.mock.MagicMock` patched into the adapter's module). Cover:
   - `test_add_maps_inputs_per_table` (verb mapping rows in [contracts/mem0-mapping.md](contracts/mem0-mapping.md))
   - `test_capabilities_matches_table`
   - `test_unsupported_audit_raises_unsupported_capability`
@@ -117,26 +117,26 @@
   - `test_scope_round_trips_via_tag_prefix` — `add(scope="coding/preferences", ...)` then `get(id)` returns the same scope; mocked client's `metadata` field shows the `__scope:` tag-prefix marker (EC-006).
   - `test_embedding_model_omitted_when_provider_managed` — assert mocked client.add call args do NOT contain `embedding_model`; capabilities flag (`vector_search=True` with provider-managed embeddings) reports correctly (EC-007).
   - `test_x_mem0_extension_round_trips` (Principle V).
-- [ ] T024 [P] [US3] Add [sdk-python/tests/adapters/test_supermemory_mapping.py](../../sdk-python/tests/adapters/test_supermemory_mapping.py): same shape, using `httpx.MockTransport` for the REST mapping per [contracts/supermemory-mapping.md](contracts/supermemory-mapping.md). Cover all status-code → exception rows; `test_update_not_advertised_raises_unsupported_capability`; `test_scope_round_trips_via_tag_prefix` (EC-006); `test_embedding_model_omitted_when_provider_managed` (EC-007).
-- [ ] T025 [P] [US3] Add [sdk-python/tests/adapters/test_letta_mapping.py](../../sdk-python/tests/adapters/test_letta_mapping.py): mock `letta-client`; cover OMP-id ↔ `(agent_id, passage_id)` encoding/decoding; `test_capabilities_matches_table`; provider-error translation; `test_one_agent_per_user_id_cached`.
+- [X] T024 [P] [US3] Add [sdk-python/tests/adapters/test_supermemory_mapping.py](../../sdk-python/tests/adapters/test_supermemory_mapping.py): same shape, using `httpx.MockTransport` for the REST mapping per [contracts/supermemory-mapping.md](contracts/supermemory-mapping.md). Cover all status-code → exception rows; `test_update_not_advertised_raises_unsupported_capability`; `test_scope_round_trips_via_tag_prefix` (EC-006); `test_embedding_model_omitted_when_provider_managed` (EC-007).
+- [X] T025 [P] [US3] Add [sdk-python/tests/adapters/test_letta_mapping.py](../../sdk-python/tests/adapters/test_letta_mapping.py): mock `letta-client`; cover OMP-id ↔ `(agent_id, passage_id)` encoding/decoding; `test_capabilities_matches_table`; provider-error translation; `test_one_agent_per_user_id_cached`.
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Create [sdk-python/openmem/adapters/mem0.py](../../sdk-python/openmem/adapters/mem0.py) implementing `Mem0Adapter(BaseAdapter)` per [contracts/mem0-mapping.md](contracts/mem0-mapping.md). Lazy `import mem0ai` inside `__init__`; raise a clear `ImportError` with `pip install openmem[mem0]` hint if missing. Implement `_to_provider_input`, `_from_provider_output`, `_translate_error`, hard-coded `capabilities()`, all verbs.
-- [ ] T027 [P] [US3] Create [sdk-python/openmem/adapters/supermemory.py](../../sdk-python/openmem/adapters/supermemory.py) implementing `SupermemoryAdapter(BaseAdapter)` per [contracts/supermemory-mapping.md](contracts/supermemory-mapping.md). Use shared `_http.py` (T006). `update` not advertised — calling raises `UnsupportedCapabilityError`.
-- [ ] T028 [P] [US3] Create [sdk-python/openmem/adapters/letta.py](../../sdk-python/openmem/adapters/letta.py) implementing `LettaAdapter(BaseAdapter)` per [contracts/letta-mapping.md](contracts/letta-mapping.md). Lazy `import letta_client`; implement `_agent_for(user_id)` cache and `mem_{agent_id}_{passage_id}` id encoding.
-- [ ] T029 [US3] In [sdk-python/openmem/memory.py](../../sdk-python/openmem/memory.py) `_resolve_adapter`: add three branches `if provider == "mem0": ...`, `if provider == "supermemory": ...`, `if provider == "letta": ...` returning the matching adapter constructed from `**config`. Append `"mem0"`, `"supermemory"`, `"letta"` to `TRANSLATION_ADAPTERS`. (Depends on T026, T027, T028.)
+- [X] T026 [P] [US3] Create [sdk-python/openmem/adapters/mem0.py](../../sdk-python/openmem/adapters/mem0.py) implementing `Mem0Adapter(BaseAdapter)` per [contracts/mem0-mapping.md](contracts/mem0-mapping.md). Lazy `import mem0ai` inside `__init__`; raise a clear `ImportError` with `pip install openmem[mem0]` hint if missing. Implement `_to_provider_input`, `_from_provider_output`, `_translate_error`, hard-coded `capabilities()`, all verbs.
+- [X] T027 [P] [US3] Create [sdk-python/openmem/adapters/supermemory.py](../../sdk-python/openmem/adapters/supermemory.py) implementing `SupermemoryAdapter(BaseAdapter)` per [contracts/supermemory-mapping.md](contracts/supermemory-mapping.md). Use shared `_http.py` (T006). `update` not advertised — calling raises `UnsupportedCapabilityError`.
+- [X] T028 [P] [US3] Create [sdk-python/openmem/adapters/letta.py](../../sdk-python/openmem/adapters/letta.py) implementing `LettaAdapter(BaseAdapter)` per [contracts/letta-mapping.md](contracts/letta-mapping.md). Lazy `import letta_client`; implement `_agent_for(user_id)` cache and `mem_{agent_id}_{passage_id}` id encoding.
+- [X] T029 [US3] In [sdk-python/openmem/memory.py](../../sdk-python/openmem/memory.py) `_resolve_adapter`: add three branches `if provider == "mem0": ...`, `if provider == "supermemory": ...`, `if provider == "letta": ...` returning the matching adapter constructed from `**config`. Append `"mem0"`, `"supermemory"`, `"letta"` to `TRANSLATION_ADAPTERS`. (Depends on T026, T027, T028.)
   - `mem0`: `api_key` (required), `host` (optional, default `https://api.mem0.ai`).
   - `supermemory`: `api_key` (required), `base_url` (optional, default `https://api.supermemory.ai/v1`).
   - `letta`: `api_key` (required), `base_url` (optional, default Letta cloud).
-- [ ] T030 [US3] In [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py): add `mem0_adapter`, `supermemory_adapter`, `letta_adapter` module-scoped fixtures; selection logic per fixture:
+- [X] T030 [US3] In [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py): add `mem0_adapter`, `supermemory_adapter`, `letta_adapter` module-scoped fixtures; selection logic per fixture:
   ```
   if env var present (e.g. MEM0_API_KEY): instantiate real adapter → live mode
   elif optional extra installed (e.g. `import mem0ai`): instantiate adapter with patched transport / MagicMock SDK → mock mode (default)
   else: pytest.skip("install openmem[mem0] to run this fixture")
   ```
   Append the three names to the `adapter` fixture `params` and dispatch dict. **No edits in `test_contract_*.py`** (SC-005).
-- [ ] T031 [US3] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Translation adapters" subsection of the `0.2.0` entry, listing the three new adapters and their capability matrices.
+- [X] T031 [US3] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Translation adapters" subsection of the `0.2.0` entry, listing the three new adapters and their capability matrices.
 
 **Checkpoint**: US3 done — all three providers in the conformance matrix; total = 5 adapters (postgres, passthrough, mem0, supermemory, letta).
 

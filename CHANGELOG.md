@@ -40,7 +40,23 @@ All notable changes to this project will be documented in this file.
 
 ### Added (US3 — Translation adapters)
 
-_Filled by T031._
+- `Mem0Adapter` (provider `"mem0"`, install via `pip install openmem[mem0]`).
+  Verbs: `add`, `get`, `update`, `delete`, `list`, `search`, `context`. Scopes
+  flatten to `tags` (EC-006). Audit and provider-managed embedding model are
+  not advertised (EC-007). Lazy-imports `mem0ai` so the dependency is optional.
+- `SupermemoryAdapter` (provider `"supermemory"`). Verbs: `add`, `get`,
+  `delete`, `list`, `search`, `context` — `update` is intentionally not
+  advertised and raises `UnsupportedCapabilityError`. REST-backed via the
+  shared `_http.make_client` factory; scopes encoded as a `tag` prefix
+  (EC-006). Search `min_score` maps to Supermemory's `threshold` parameter.
+- `LettaAdapter` (provider `"letta"`, install via `pip install openmem[letta]`).
+  Verbs: `add`, `get`, `delete`, `list`, `search`, `context`. Caches
+  one Letta agent per `user_id` (`omp_{user_id}`); OMP ids are encoded as
+  `mem_{agent_id}_{passage_id}` and decoded on `get`/`delete`. Native scopes
+  via Letta passage metadata; temporal queries supported.
+- All three adapters round-trip provider-namespaced `x-*` extension keys
+  (Principle V) and pass the shared contract suite (`test_contract_*.py`)
+  with zero edits to the contract files (SC-005).
 
 ### Tooling
 

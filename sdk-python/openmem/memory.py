@@ -64,13 +64,46 @@ def _resolve_adapter(provider: str, **config: Any) -> BaseAdapter:
             raise ValueError("postgres provider requires url=...")
         return PostgresAdapter(url=url, embedder=embedder)
 
+    if provider == "mem0":
+        from .adapters.mem0 import Mem0Adapter
+
+        if not api_key:
+            raise ValueError("mem0 provider requires api_key=...")
+        return Mem0Adapter(
+            api_key=api_key,
+            host=config.pop("host", "https://api.mem0.ai"),
+            client=config.pop("client", None),
+        )
+
+    if provider == "supermemory":
+        from .adapters.supermemory import SupermemoryAdapter
+
+        if not api_key:
+            raise ValueError("supermemory provider requires api_key=...")
+        return SupermemoryAdapter(
+            api_key=api_key,
+            base_url=config.pop("base_url", "https://api.supermemory.ai/v1"),
+            transport=config.pop("transport", None),
+        )
+
+    if provider == "letta":
+        from .adapters.letta import LettaAdapter
+
+        if not api_key:
+            raise ValueError("letta provider requires api_key=...")
+        return LettaAdapter(
+            api_key=api_key,
+            base_url=config.pop("base_url", None),
+            client=config.pop("client", None),
+        )
+
     raise UnsupportedProviderError(
         f"unknown provider {provider!r}; pass base_url=... for native OMP"
     )
 
 
-# Translation adapters known to the SDK in M1.
-TRANSLATION_ADAPTERS = ("postgres",)
+# Translation adapters known to the SDK.
+TRANSLATION_ADAPTERS = ("postgres", "mem0", "supermemory", "letta")
 
 
 class Memory:
