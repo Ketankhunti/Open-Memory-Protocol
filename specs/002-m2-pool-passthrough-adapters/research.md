@@ -40,15 +40,16 @@ All assumptions from [spec.md](spec.md) `## Assumptions` are evaluated here. Eve
 ## R-004 · Test isolation strategy
 
 - **Decision**: **Default = mock mode** for all three translation adapters; **opt-in live mode** via env vars.
-  - Mock mode: each adapter's HTTP/SDK transport is patched at module boundary; recorded JSON fixtures under `sdk-python/tests/adapters/fixtures/{mem0,supermemory,letta}/*.json` provide deterministic responses.
+  - Mock mode: each adapter's underlying SDK or HTTP client is replaced at module boundary using `unittest.mock.MagicMock` (for SDK-backed adapters: Mem0, Letta) or `httpx.MockTransport` (for REST-backed adapters: Supermemory, Passthrough). Per-test setups configure return values inline — no separate JSON-on-disk fixtures.
   - Live mode: setting `MEM0_API_KEY` / `SUPERMEMORY_API_KEY` / `LETTA_API_KEY` switches the matching adapter to a real network call; others stay mocked.
   - CI runs only mock mode (no secret in CI); a separate maintainer-only workflow runs live mode nightly.
 - **Rationale**:
   - Reproducible CI (Principle II — test results gate the conformance tier).
   - No third-party account required to run the SDK or its tests (Principle IV).
-  - Recorded fixtures are versioned and auditable for spec drift.
+  - Inline mock setup keeps each test self-contained and avoids a parallel "recording lifecycle" (regenerating fixtures, diffing whitespace, etc.).
 - **Alternatives considered**:
-  - **VCR.py cassettes** — heavier dep; harder to read/edit by hand; rejected for keeping fixtures human-readable JSON.
+  - **Recorded JSON fixtures on disk** — initially planned, rejected: adds a recording lifecycle; tests are clearer when the expected responses live next to the assertions.
+  - **VCR.py cassettes** — heavier dep; same lifecycle problem.
   - **Live-only with skip-if-no-credentials** — would mean the conformance suite is effectively skipped in CI for these adapters, defeating Principle II.
 
 ## R-005 · Capability shape per adapter (M2 cut)

@@ -94,11 +94,11 @@ MEM0_API_KEY=… pytest tests -q -k mem0 # live mode for one adapter
 
 ## 5. Add a new adapter (Constitution Principle II)
 
-Two files — that's it:
+Two existing files to edit (`conftest.py` + `memory.py`), plus the new adapter file itself:
 
-1. `sdk-python/openmem/adapters/<your_provider>.py` — subclass `BaseAdapter`, implement verbs, return honest `capabilities()`.
-2. `sdk-python/tests/conftest.py` — add a fixture for it and append the name to `adapter`'s `params` list.
-3. `sdk-python/openmem/memory.py` — register it in `_resolve_adapter`.
+1. `sdk-python/openmem/adapters/<your_provider>.py` — **new file**: subclass `BaseAdapter`, implement verbs, return honest `capabilities()`.
+2. `sdk-python/tests/conftest.py` — **edit**: add a fixture for it and append the name to `adapter`'s `params` list.
+3. `sdk-python/openmem/memory.py` — **edit**: register it in `_resolve_adapter`.
 
 Run `pytest tests -q` — the existing `test_contract_*.py` files run unchanged against your adapter and report a Conformance Tier from the result.
 

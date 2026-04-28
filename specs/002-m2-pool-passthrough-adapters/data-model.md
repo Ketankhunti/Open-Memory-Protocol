@@ -21,7 +21,7 @@ Entities introduced or significantly modified. Standard `Memory`, `MemoryInput`,
 5. On `pool.PoolTimeout`: wrapped to `ProviderError` (FR-004, EC-001).
 
 **Invariants**:
-- `__init__` MUST instantiate the pool *eagerly* but allow lazy connection opening (matches `psycopg_pool` default `open=True, configure=None`).
+- `__init__` MUST construct and open the pool synchronously. The pool eagerly opens `pool_min_size` connections on `__init__`; remaining connections are opened lazily up to `pool_max_size` on demand (default `psycopg_pool` behavior with `open=True`).
 - `close()` MUST close the pool to release sockets (idempotent).
 
 ## E-002 · `PassthroughAdapter` runtime state
