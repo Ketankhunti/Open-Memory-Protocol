@@ -1,0 +1,2 @@
+Reserved for future on-disk fixtures (see specs/002-m2-pool-passthrough-adapters/research.md §R-004).
+Currently no JSON fixtures are required; mock substrate is inline MagicMock / httpx.MockTransport.

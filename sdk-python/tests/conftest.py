@@ -80,7 +80,8 @@ def _clean_db(request):
         yield
         return
     pa = request.getfixturevalue("postgres_adapter")
-    with pa._conn.cursor() as cur:
-        cur.execute("TRUNCATE TABLE memories")
-    pa._conn.commit()
+    with pa._pool.connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE TABLE memories")
+        conn.commit()
     yield

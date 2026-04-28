@@ -21,12 +21,11 @@ from __future__ import annotations
 
 import base64
 import json
-import threading
 from datetime import datetime, timezone
-from functools import wraps
 from typing import Any
 
 import psycopg
+import psycopg_pool
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
 from ulid import ULID
@@ -100,19 +99,6 @@ def _split_extensions(extra: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in extra.items() if k.startswith("x-")}
 
 
-def _synchronized(method):
-    """Serialize all method calls on ``self._lock`` (psycopg connections
-    are not thread-safe; this guarantees correctness without requiring a
-    connection pool dependency)."""
-
-    @wraps(method)
-    def wrapper(self, *args, **kwargs):
-        with self._lock:
-            return method(self, *args, **kwargs)
-
-    return wrapper
-
-
 # ---------------------------------------------------------------------------
 # Adapter
 # ---------------------------------------------------------------------------
@@ -126,62 +112,82 @@ class PostgresAdapter(BaseAdapter):
         url: str,
         *,
         embedder: Embedder | None = None,
+        pool_min_size: int = 1,
+        pool_max_size: int = 10,
+        pool_timeout: float = 30.0,
     ) -> None:
         self._url = url
         self.embedder: Embedder = embedder or FakeEmbedder()
-        # psycopg connections are not thread-safe — serialize all access.
-        self._lock = threading.RLock()
+        # M2: connection pool replaces the M1 RLock stop-gap (FR-001..005).
         try:
-            self._conn = psycopg.connect(url, autocommit=False)
+            self._pool = psycopg_pool.ConnectionPool(
+                conninfo=url,
+                min_size=pool_min_size,
+                max_size=pool_max_size,
+                timeout=pool_timeout,
+                open=True,
+            )
         except psycopg.Error as e:
             raise ProviderError(
-                f"failed to connect to postgres: {e}", provider="postgres"
+                f"failed to open postgres pool: {e}", provider="postgres"
             ) from e
         self._dim = self.embedder.dim
         self._ensure_schema()
+
+    def close(self) -> None:
+        """Close the pool. Idempotent."""
+        try:
+            self._pool.close()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ DDL
 
     def _ensure_schema(self) -> None:
         try:
-            with self._conn.cursor() as cur:
-                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                cur.execute(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS memories (
-                        id              TEXT PRIMARY KEY,
-                        content         TEXT NOT NULL,
-                        user_id         TEXT NOT NULL,
-                        scope           TEXT,
-                        tags            TEXT[],
-                        source          JSONB,
-                        confidence      REAL,
-                        valid_from      TIMESTAMPTZ,
-                        valid_to        TIMESTAMPTZ,
-                        supersedes      TEXT[],
-                        embedding_model TEXT,
-                        embedding       VECTOR({self._dim}),
-                        extensions      JSONB,
-                        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        updated_at      TIMESTAMPTZ
-                    );
-                    """
-                )
-                cur.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_memories_user_scope "
-                    "ON memories(user_id, scope);"
-                )
-                cur.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_memories_tags "
-                    "ON memories USING GIN(tags);"
-                )
-                cur.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_memories_created_at "
-                    "ON memories(created_at DESC, id DESC);"
-                )
-            self._conn.commit()
+            with self._pool.connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                    cur.execute(
+                        f"""
+                        CREATE TABLE IF NOT EXISTS memories (
+                            id              TEXT PRIMARY KEY,
+                            content         TEXT NOT NULL,
+                            user_id         TEXT NOT NULL,
+                            scope           TEXT,
+                            tags            TEXT[],
+                            source          JSONB,
+                            confidence      REAL,
+                            valid_from      TIMESTAMPTZ,
+                            valid_to        TIMESTAMPTZ,
+                            supersedes      TEXT[],
+                            embedding_model TEXT,
+                            embedding       VECTOR({self._dim}),
+                            extensions      JSONB,
+                            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                            updated_at      TIMESTAMPTZ
+                        );
+                        """
+                    )
+                    cur.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_memories_user_scope "
+                        "ON memories(user_id, scope);"
+                    )
+                    cur.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_memories_tags "
+                        "ON memories USING GIN(tags);"
+                    )
+                    cur.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_memories_created_at "
+                        "ON memories(created_at DESC, id DESC);"
+                    )
+                conn.commit()
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted during schema setup: {e}",
+                provider="postgres",
+            ) from e
         except psycopg.Error as e:
-            self._conn.rollback()
             raise ProviderError(
                 f"DDL failed: {e}", provider="postgres"
             ) from e
@@ -211,7 +217,6 @@ class PostgresAdapter(BaseAdapter):
 
     # ------------------------------------------------------------------- add
 
-    @_synchronized
     def add(self, memory: MemoryInput) -> Memory:
         # Pre-INSERT dim check (closes analyze finding I2 / EC-005)
         if self.embedder.dim != self._dim:
@@ -226,62 +231,70 @@ class PostgresAdapter(BaseAdapter):
         # Extract x-<provider> extension fields from the input's `extra`
         extras = _split_extensions(memory.model_extra or {})
         try:
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    """
-                    INSERT INTO memories (
-                        id, content, user_id, scope, tags, source, confidence,
-                        valid_from, valid_to, supersedes, embedding_model,
-                        embedding, extensions, created_at
-                    ) VALUES (
-                        %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s,
-                        %s::vector, %s, %s
+            with self._pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(
+                        """
+                        INSERT INTO memories (
+                            id, content, user_id, scope, tags, source, confidence,
+                            valid_from, valid_to, supersedes, embedding_model,
+                            embedding, extensions, created_at
+                        ) VALUES (
+                            %s, %s, %s, %s, %s, %s, %s,
+                            %s, %s, %s, %s,
+                            %s::vector, %s, %s
+                        )
+                        RETURNING *;
+                        """,
+                        (
+                            new_id,
+                            memory.content,
+                            memory.user_id,
+                            memory.scope,
+                            memory.tags,
+                            Json(memory.source.model_dump(exclude_none=True))
+                            if memory.source
+                            else None,
+                            memory.confidence,
+                            memory.valid_from,
+                            memory.valid_to,
+                            memory.supersedes,
+                            self.embedder.model,
+                            _vector_literal(embedding),
+                            Json(extras) if extras else None,
+                            now,
+                        ),
                     )
-                    RETURNING *;
-                    """,
-                    (
-                        new_id,
-                        memory.content,
-                        memory.user_id,
-                        memory.scope,
-                        memory.tags,
-                        Json(memory.source.model_dump(exclude_none=True))
-                        if memory.source
-                        else None,
-                        memory.confidence,
-                        memory.valid_from,
-                        memory.valid_to,
-                        memory.supersedes,
-                        self.embedder.model,
-                        _vector_literal(embedding),
-                        Json(extras) if extras else None,
-                        now,
-                    ),
-                )
-                row = cur.fetchone()
-            self._conn.commit()
+                    row = cur.fetchone()
+                conn.commit()
             assert row is not None
             return self._row_to_memory(row)
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
-            self._conn.rollback()
             raise ProviderError(
                 f"insert failed: {e}", provider="postgres"
             ) from e
 
     # ------------------------------------------------------------------- get
 
-    @_synchronized
     def get(self, id: str) -> Memory:
         try:
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute("SELECT * FROM memories WHERE id = %s;", (id,))
-                row = cur.fetchone()
+            with self._pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute("SELECT * FROM memories WHERE id = %s;", (id,))
+                    row = cur.fetchone()
             if row is None:
                 raise NotFoundError(
                     f"memory {id!r} not found", provider="postgres"
                 )
             return self._row_to_memory(row)
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
             raise ProviderError(
                 f"get failed: {e}", provider="postgres"
@@ -289,7 +302,6 @@ class PostgresAdapter(BaseAdapter):
 
     # ---------------------------------------------------------------- update
 
-    @_synchronized
     def update(self, id: str, update: MemoryUpdate) -> Memory:
         sets: list[str] = []
         params: list[Any] = []
@@ -328,48 +340,54 @@ class PostgresAdapter(BaseAdapter):
 
         params.append(id)
         try:
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    f"UPDATE memories SET {', '.join(sets)} "
-                    "WHERE id = %s RETURNING *;",
-                    tuple(params),
-                )
-                row = cur.fetchone()
-            if row is None:
-                self._conn.rollback()
-                raise NotFoundError(
-                    f"memory {id!r} not found", provider="postgres"
-                )
-            self._conn.commit()
+            with self._pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(
+                        f"UPDATE memories SET {', '.join(sets)} "
+                        "WHERE id = %s RETURNING *;",
+                        tuple(params),
+                    )
+                    row = cur.fetchone()
+                if row is None:
+                    conn.rollback()
+                    raise NotFoundError(
+                        f"memory {id!r} not found", provider="postgres"
+                    )
+                conn.commit()
             return self._row_to_memory(row)
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
-            self._conn.rollback()
             raise ProviderError(
                 f"update failed: {e}", provider="postgres"
             ) from e
 
     # ---------------------------------------------------------------- delete
 
-    @_synchronized
     def delete(self, id: str) -> None:
         try:
-            with self._conn.cursor() as cur:
-                cur.execute("DELETE FROM memories WHERE id = %s;", (id,))
-                affected = cur.rowcount
-            self._conn.commit()
+            with self._pool.connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM memories WHERE id = %s;", (id,))
+                    affected = cur.rowcount
+                conn.commit()
             if affected == 0:
                 raise NotFoundError(
                     f"memory {id!r} not found", provider="postgres"
                 )
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
-            self._conn.rollback()
             raise ProviderError(
                 f"delete failed: {e}", provider="postgres"
             ) from e
 
     # ------------------------------------------------------------------ list
 
-    @_synchronized
     def list(  # noqa: A003 — match OMP verb name
         self,
         user_id: str,
@@ -408,9 +426,14 @@ class PostgresAdapter(BaseAdapter):
             + " ORDER BY created_at DESC, id DESC LIMIT %s;"
         )
         try:
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(sql, tuple(params))
-                rows = cur.fetchall()
+            with self._pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(sql, tuple(params))
+                    rows = cur.fetchall()
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
             raise ProviderError(
                 f"list failed: {e}", provider="postgres"
@@ -426,7 +449,6 @@ class PostgresAdapter(BaseAdapter):
 
     # ---------------------------------------------------------------- search
 
-    @_synchronized
     def search(
         self,
         query: str,
@@ -454,9 +476,14 @@ class PostgresAdapter(BaseAdapter):
         )
         vec_lit = _vector_literal(q_emb)
         try:
-            with self._conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(sql, (vec_lit, *params, vec_lit, limit))
-                rows = cur.fetchall()
+            with self._pool.connection() as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute(sql, (vec_lit, *params, vec_lit, limit))
+                    rows = cur.fetchall()
+        except psycopg_pool.PoolTimeout as e:
+            raise ProviderError(
+                f"connection pool exhausted: {e}", provider="postgres"
+            ) from e
         except psycopg.Error as e:
             raise ProviderError(
                 f"search failed: {e}", provider="postgres"
@@ -466,21 +493,22 @@ class PostgresAdapter(BaseAdapter):
             # A3: distinguish "no candidates at all" from "no candidates with
             # this embedding model" (FR-014).
             try:
-                with self._conn.cursor() as cur:
-                    cur.execute(
-                        "SELECT 1 FROM memories WHERE user_id = %s "
-                        + (
-                            "AND scope LIKE %s LIMIT 1;"
-                            if scope is not None
-                            else "LIMIT 1;"
-                        ),
-                        (
-                            (user_id, _scope_glob_to_sql_like(scope))
-                            if scope is not None
-                            else (user_id,)
-                        ),
-                    )
-                    has_other_models = cur.fetchone() is not None
+                with self._pool.connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            "SELECT 1 FROM memories WHERE user_id = %s "
+                            + (
+                                "AND scope LIKE %s LIMIT 1;"
+                                if scope is not None
+                                else "LIMIT 1;"
+                            ),
+                            (
+                                (user_id, _scope_glob_to_sql_like(scope))
+                                if scope is not None
+                                else (user_id,)
+                            ),
+                        )
+                        has_other_models = cur.fetchone() is not None
             except psycopg.Error:
                 has_other_models = False
             if has_other_models:

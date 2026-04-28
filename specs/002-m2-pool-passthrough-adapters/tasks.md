@@ -16,11 +16,11 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Add `psycopg-pool>=3.2` to `[project.dependencies]` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml)
-- [ ] T002 Add `pytest-timeout>=2.3` to `[project.optional-dependencies].dev` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml) (FR-017)
-- [ ] T003 Add `timeout = 30` to `[tool.pytest.ini_options]` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml) (R-006, SC-006)
-- [ ] T004 Add three opt-in extras to [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml): `mem0 = ["mem0ai>=0.1"]`, `supermemory = []` (REST-only marker extra), `letta = ["letta-client>=0.1"]`
-- [ ] T005 [P] Add a CHANGELOG `## [0.2.0] — 2026-04-28` skeleton entry in [CHANGELOG.md](../../CHANGELOG.md) listing the four sections to be filled by US1/US2/US3 tasks (RLock removal note included per EC-009)
+- [X] T001 Add `psycopg-pool>=3.2` to `[project.dependencies]` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml)
+- [X] T002 Add `pytest-timeout>=2.3` to `[project.optional-dependencies].dev` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml) (FR-017)
+- [X] T003 Add `timeout = 30` to `[tool.pytest.ini_options]` in [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml) (R-006, SC-006)
+- [X] T004 Add three opt-in extras to [sdk-python/pyproject.toml](../../sdk-python/pyproject.toml): `mem0 = ["mem0ai>=0.1"]`, `supermemory = []` (REST-only marker extra), `letta = ["letta-client>=0.1"]`
+- [X] T005 [P] Add a CHANGELOG `## [0.2.0] — 2026-04-28` skeleton entry in [CHANGELOG.md](../../CHANGELOG.md) listing the four sections to be filled by US1/US2/US3 tasks (RLock removal note included per EC-009)
 
 ---
 
@@ -28,9 +28,9 @@
 
 ⚠️ Must complete before any US phase begins.
 
-- [ ] T006 Create [sdk-python/openmem/adapters/_http.py](../../sdk-python/openmem/adapters/_http.py): shared `httpx.Client` factory + `decode_omp_error(response, provider)` helper that implements the order-of-evaluation rules from [contracts/passthrough-http.md](contracts/passthrough-http.md) §"Error mapping" (envelope → 4xx → 5xx → transport). Used by passthrough and translation adapters.
-- [ ] T007 [P] Reserve `tests/adapters/fixtures/` directory under [sdk-python/tests/adapters](../../sdk-python/tests/adapters) with a single `.gitkeep`. Currently no JSON fixtures are required (R-004 was revised to use inline MagicMock / MockTransport setup); this directory is kept as the documented home should any adapter later need on-disk recordings.
-- [ ] T008 Add an `_omp_mock_server` session-scoped fixture to [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py) implementing an in-process OMP HTTP shim built on `httpx.MockTransport` and a dispatch dict keyed by `(method, path-template)`. The shim delegates writes to a fresh `PostgresAdapter` instance per session so it round-trips real data. Used by passthrough tests (R-002).
+- [X] T006 Create [sdk-python/openmem/adapters/_http.py](../../sdk-python/openmem/adapters/_http.py): shared `httpx.Client` factory + `decode_omp_error(response, provider)` helper that implements the order-of-evaluation rules from [contracts/passthrough-http.md](contracts/passthrough-http.md) §"Error mapping" (envelope → 4xx → 5xx → transport). Used by passthrough and translation adapters.
+- [X] T007 [P] Reserve `tests/adapters/fixtures/` directory under [sdk-python/tests/adapters](../../sdk-python/tests/adapters) with a single `.gitkeep`. Currently no JSON fixtures are required (R-004 was revised to use inline MagicMock / MockTransport setup); this directory is kept as the documented home should any adapter later need on-disk recordings.
+- [ ] T008 (DEFERRED to start of Phase 4 — US1 does not require it.) Add an `_omp_mock_server` session-scoped fixture to [sdk-python/tests/conftest.py](../../sdk-python/tests/conftest.py) implementing an in-process OMP HTTP shim built on `httpx.MockTransport` and a dispatch dict keyed by `(method, path-template)`. The shim delegates writes to a fresh `PostgresAdapter` instance per session so it round-trips real data. Used by passthrough tests (R-002).
 
 **Checkpoint**: shared HTTP utilities + mock OMP server are available; user stories may now proceed in parallel.
 
@@ -55,12 +55,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): remove `import threading`, remove `from functools import wraps`, remove the module-level `_synchronized` decorator, remove `self._lock = threading.RLock()` from `__init__`, and remove every `@_synchronized` decoration from `add/get/update/delete/list/search/context` (FR-003).
-- [ ] T011 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py) `__init__`: add kwargs `pool_min_size: int = 1, pool_max_size: int = 10, pool_timeout: float = 30.0`; replace `self._conn = psycopg.connect(url)` with `self._pool = psycopg_pool.ConnectionPool(conninfo=url, min_size=pool_min_size, max_size=pool_max_size, timeout=pool_timeout, open=True)`; remove `self._conn`. (FR-001, FR-002)
-- [ ] T012 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): refactor every verb body (`add/get/update/delete/list/search/context` and `_ensure_schema`) to acquire connections via `with self._pool.connection() as conn:` then `with conn.cursor() as cur:`. Remove all uses of `self._conn`.
-- [ ] T013 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): wrap `psycopg_pool.PoolTimeout` → `ProviderError("connection pool exhausted", provider="postgres")`. (FR-004, EC-001)
-- [ ] T014 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): add `close(self) -> None` that calls `self._pool.close()`; idempotent (D-001 invariant). Update `__init__.py` to export if not already.
-- [ ] T015 [US1] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Pooling" subsection of the `0.2.0` entry, calling out RLock removal as a behavior change (no public API break) per EC-009.
+- [X] T010 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): remove `import threading`, remove `from functools import wraps`, remove the module-level `_synchronized` decorator, remove `self._lock = threading.RLock()` from `__init__`, and remove every `@_synchronized` decoration from `add/get/update/delete/list/search/context` (FR-003).
+- [X] T011 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py) `__init__`: add kwargs `pool_min_size: int = 1, pool_max_size: int = 10, pool_timeout: float = 30.0`; replace `self._conn = psycopg.connect(url)` with `self._pool = psycopg_pool.ConnectionPool(conninfo=url, min_size=pool_min_size, max_size=pool_max_size, timeout=pool_timeout, open=True)`; remove `self._conn`. (FR-001, FR-002)
+- [X] T012 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): refactor every verb body (`add/get/update/delete/list/search/context` and `_ensure_schema`) to acquire connections via `with self._pool.connection() as conn:` then `with conn.cursor() as cur:`. Remove all uses of `self._conn`.
+- [X] T013 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): wrap `psycopg_pool.PoolTimeout` → `ProviderError("connection pool exhausted", provider="postgres")`. (FR-004, EC-001)
+- [X] T014 [US1] In [sdk-python/openmem/adapters/postgres.py](../../sdk-python/openmem/adapters/postgres.py): add `close(self) -> None` that calls `self._pool.close()`; idempotent (D-001 invariant). Update `__init__.py` to export if not already.
+- [X] T015 [US1] In [CHANGELOG.md](../../CHANGELOG.md): fill the "Pooling" subsection of the `0.2.0` entry, calling out RLock removal as a behavior change (no public API break) per EC-009.
 
 **Checkpoint**: US1 done — Postgres adapter scales; contract suite passes; concurrency test <30s.
 

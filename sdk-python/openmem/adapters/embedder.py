@@ -38,13 +38,19 @@ class Embedder(Protocol):
 class FakeEmbedder:
     """Deterministic, offline embedder for tests + demos.
 
-    Hashes the input with SHA-256 expanded to ``dim`` floats in [-1, 1],
-    then L2-normalizes. Same text always produces the same vector, so
-    cosine similarity is meaningful: identical strings score 1.0,
-    unrelated strings score near 0.
+    Tokenizes the input on non-alphanumeric boundaries (lowercased), maps
+    each unique token to a deterministic SHA-256-derived unit vector of
+    size ``dim``, sums them, and L2-normalizes. This makes cosine
+    similarity reflect **token overlap**: identical strings score 1.0,
+    strings sharing relevant keywords (e.g. ``"user prefers"`` ↔
+    ``"the user prefer"``) score noticeably higher than unrelated ones.
+
+    The previous implementation hashed the whole string and produced
+    semantically blind vectors (every distinct text was effectively
+    orthogonal), which made relevance-style contract tests probabilistic.
 
     Default ``dim=64`` keeps test DDL fast while staying high-dim enough
-    that random collisions are negligible.
+    that random hash collisions between unrelated tokens are negligible.
     """
 
     def __init__(self, dim: int = 64, model: str = "fake-sha256-64") -> None:
@@ -56,25 +62,63 @@ class FakeEmbedder:
     def embed(self, texts: list[str]) -> list[list[float]]:
         return [self._embed_one(t) for t in texts]
 
-    def _embed_one(self, text: str) -> list[float]:
-        # Generate enough bytes by hashing repeatedly with a counter
+    @staticmethod
+    def _tokenize(text: str) -> list[str]:
+        # Tiny stopword list so common function words don't drown out
+        # content tokens in the bag-of-words cosine. Kept intentionally
+        # small — this is an offline test embedder, not a production NLP
+        # pipeline.
+        stopwords = {
+            "a", "an", "and", "are", "as", "at", "be", "but", "by", "do",
+            "does", "for", "from", "had", "has", "have", "i", "if", "in",
+            "is", "it", "its", "my", "of", "on", "or", "so", "that", "the",
+            "this", "to", "was", "were", "which", "with",
+        }
+        out: list[str] = []
+        buf: list[str] = []
+        for ch in text.lower():
+            if ch.isalnum():
+                buf.append(ch)
+            elif buf:
+                tok = "".join(buf)
+                if tok not in stopwords:
+                    out.append(tok)
+                buf = []
+        if buf:
+            tok = "".join(buf)
+            if tok not in stopwords:
+                out.append(tok)
+        return out
+
+    def _token_vector(self, token: str) -> list[float]:
+        # Generate ``dim`` floats in [-1, 1] from SHA-256(token), then
+        # L2-normalize so each token contributes a unit vector.
         out: list[float] = []
         counter = 0
-        # 8 bytes per float
-        bytes_needed = self.dim * 8
-        while len(out) * 8 < bytes_needed:
-            h = hashlib.sha256(f"{counter}:{text}".encode("utf-8")).digest()
+        while len(out) < self.dim:
+            h = hashlib.sha256(f"{counter}:{token}".encode("utf-8")).digest()
             for i in range(0, len(h), 8):
                 if len(out) >= self.dim:
                     break
-                chunk = h[i : i + 8]
-                # Map 8 bytes to a signed int → float in [-1, 1]
-                n = int.from_bytes(chunk, "big", signed=False)
+                n = int.from_bytes(h[i : i + 8], "big", signed=False)
                 out.append((n / (2**64 - 1)) * 2 - 1)
             counter += 1
-        # L2 normalize so cosine similarity makes sense
         norm = math.sqrt(sum(x * x for x in out)) or 1.0
         return [x / norm for x in out]
+
+    def _embed_one(self, text: str) -> list[float]:
+        tokens = self._tokenize(text)
+        if not tokens:
+            # Fall back to hashing the empty/symbol-only string itself so
+            # the embedder remains total.
+            return self._token_vector(text)
+        acc = [0.0] * self.dim
+        for tok in tokens:
+            v = self._token_vector(tok)
+            for i in range(self.dim):
+                acc[i] += v[i]
+        norm = math.sqrt(sum(x * x for x in acc)) or 1.0
+        return [x / norm for x in acc]
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] — Unreleased (M2)
+
+### Added (US1 — Postgres pooling)
+
+- `PostgresAdapter` now uses a `psycopg_pool.ConnectionPool` instead of a
+  single connection guarded by an `RLock` (FR-001, FR-002, FR-003).
+- New `__init__` kwargs `pool_min_size` (default `1`), `pool_max_size`
+  (default `10`), and `pool_timeout` (default `30.0` seconds).
+- New `close()` method that calls `self._pool.close()`; idempotent.
+- Pool exhaustion (`psycopg_pool.PoolTimeout`) is mapped to
+  `ProviderError("connection pool exhausted: ...", provider="postgres")`
+  (FR-004, EC-001).
+- New dependency: `psycopg-pool>=3.2`.
+
+### Added (US2 — Native passthrough)
+
+_Filled by T022._
+
+### Added (US3 — Translation adapters)
+
+_Filled by T031._
+
+### Tooling
+
+_Filled by T034._
+
+### Removed / Behavior changes
+
+- `PostgresAdapter._lock` and the `@_synchronized` decorator are removed
+  (EC-009). The pool replaces them; callers depending on the lock
+  attribute will see `AttributeError`. No public API break.
+
 ## [0.1.0] — Initial M1 release
 
 ### Added (Setup)
