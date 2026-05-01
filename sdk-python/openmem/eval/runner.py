@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from openmem.eval import cost as cost_mod
 from openmem.eval.scorer import compute_metrics
+from openmem.eval.trace import TraceWriter
 from openmem.eval.types import (
     Dataset,
     ErrorRecord,
@@ -108,121 +109,153 @@ def run(
     results: list[ProviderResult] = []
     gold = {q.query_id: q.gold_fact_ids for q in dataset.queries}
 
-    for provider in cfg.providers:
-        pr = ProviderResult(provider=provider)
-        run_started = time.perf_counter()
+    with TraceWriter(cfg.trace_path) as trace:
+        for provider in cfg.providers:
+            pr = _run_provider(provider, cfg, dataset, gold, factory, trace)
+            results.append(pr)
+
+    return results
+
+
+def _run_provider(
+    provider: str,
+    cfg: RunConfig,
+    dataset: Dataset,
+    gold: dict[str, tuple[str, ...]],
+    factory: Callable[[str], Any],
+    trace: TraceWriter,
+) -> ProviderResult:
+    pr = ProviderResult(provider=provider)
+    run_started = time.perf_counter()
+    try:
+        mem = factory(provider)
+    except Exception as exc:  # pragma: no cover - defensive
+        pr.status = "failed"
+        pr.errors.append(
+            ErrorRecord(
+                verb="init",
+                error_class=type(exc).__name__,
+                message=str(exc),
+                ts=_iso_now(),
+            )
+        )
+        pr.metrics = Metrics(error_count=1)
+        trace.emit(provider=provider, verb="init", run_id=cfg.run_id,
+                   latency_ms=0.0, error=f"{type(exc).__name__}: {exc}")
+        return pr
+
+    # ---- ingest ----
+    added_ids: list[str] = []
+    for fact in dataset.facts:
+        t0 = time.perf_counter()
+        err: Optional[str] = None
         try:
-            mem = factory(provider)
-        except Exception as exc:  # pragma: no cover - defensive
-            pr.status = "failed"
+            rec = mem.add(
+                content=_stamp(fact.fact_id, fact.content),
+                user_id=cfg.user_id(),
+                tags=[*fact.tags, f"fact:{fact.fact_id}"],
+            )
+            rid = getattr(rec, "id", None)
+            if rid:
+                added_ids.append(rid)
+        except Exception as exc:
+            err = f"{type(exc).__name__}: {exc}"
             pr.errors.append(
                 ErrorRecord(
-                    verb="init",
+                    verb="add",
                     error_class=type(exc).__name__,
                     message=str(exc),
                     ts=_iso_now(),
+                    fact_id=fact.fact_id,
                 )
             )
-            pr.metrics = Metrics(error_count=1)
-            results.append(pr)
-            continue
-
-        # ---- ingest ----
-        added_ids: list[str] = []
-        for fact in dataset.facts:
-            t0 = time.perf_counter()
-            try:
-                rec = mem.add(
-                    content=_stamp(fact.fact_id, fact.content),
-                    user_id=cfg.user_id(),
-                    tags=[*fact.tags, f"fact:{fact.fact_id}"],
-                )
-                rid = getattr(rec, "id", None)
-                if rid:
-                    added_ids.append(rid)
-            except Exception as exc:
-                pr.errors.append(
-                    ErrorRecord(
-                        verb="add",
-                        error_class=type(exc).__name__,
-                        message=str(exc),
-                        ts=_iso_now(),
-                        fact_id=fact.fact_id,
-                    )
-                )
-            finally:
-                pr.ingest_latencies_ms.append((time.perf_counter() - t0) * 1000)
-
-        # ---- wait for ingest (no-op for sync adapters; polling for async) ----
-        wait = getattr(mem, "wait_for_ingest", None)
-        if callable(wait) and added_ids:
-            try:
-                wait(added_ids, cfg.user_id(), timeout=30.0)
-            except Exception:  # pragma: no cover - defensive
-                pass
-
-        # ---- search ----
-        for query in dataset.queries:
-            t0 = time.perf_counter()
-            top_ids: list[str] = []
-            err: Optional[str] = None
-            try:
-                hits = mem.search(query.query, cfg.user_id(), limit=cfg.top_k)
-                for h in hits:
-                    fid = _recover_fact_id(
-                        content=getattr(h.memory, "content", None),
-                        tags=getattr(h.memory, "tags", None),
-                    )
-                    if fid:
-                        top_ids.append(fid)
-            except Exception as exc:
-                err = f"{type(exc).__name__}: {exc}"
-                pr.errors.append(
-                    ErrorRecord(
-                        verb="search",
-                        error_class=type(exc).__name__,
-                        message=str(exc),
-                        ts=_iso_now(),
-                        query_id=query.query_id,
-                    )
-                )
+        finally:
             latency_ms = (time.perf_counter() - t0) * 1000
-            pr.search_latencies_ms.append(latency_ms)
-            pr.query_results.append(
-                QueryResult(
-                    query_id=query.query_id,
-                    top_k_fact_ids=top_ids,
-                    latency_ms=latency_ms,
-                    error=err,
-                )
+            pr.ingest_latencies_ms.append(latency_ms)
+            trace.emit(
+                provider=provider, verb="add", run_id=cfg.run_id,
+                latency_ms=latency_ms,
+                payload_text=fact.content,
+                error=err,
+                extra={"fact_id": fact.fact_id},
             )
 
-        pr.total_wall_s = round(time.perf_counter() - run_started, 3)
-        pr.metrics = Metrics(error_count=len(pr.errors))
-        pr.metrics = compute_metrics(pr, gold)
-        # carry over error_count after compute_metrics overwrites
-        pr.metrics.error_count = len(pr.errors)
+    # ---- wait for ingest (no-op for sync adapters; polling for async) ----
+    wait = getattr(mem, "wait_for_ingest", None)
+    if callable(wait) and added_ids:
+        try:
+            wait(added_ids, cfg.user_id(), timeout=30.0)
+        except Exception:  # pragma: no cover - defensive
+            pass
 
-        # cost accounting (only matters when --live and provider is paid)
-        est = cost_mod.estimate(
-            provider,
-            add_calls=len(dataset.facts),
-            search_calls=len(dataset.queries),
-            delete_calls=len(dataset.facts) if cfg.cleanup else 0,
+    # ---- search ----
+    for query in dataset.queries:
+        t0 = time.perf_counter()
+        top_ids: list[str] = []
+        err: Optional[str] = None
+        try:
+            hits = mem.search(query.query, cfg.user_id(), limit=cfg.top_k)
+            for h in hits:
+                fid = _recover_fact_id(
+                    content=getattr(h.memory, "content", None),
+                    tags=getattr(h.memory, "tags", None),
+                )
+                if fid:
+                    top_ids.append(fid)
+        except Exception as exc:
+            err = f"{type(exc).__name__}: {exc}"
+            pr.errors.append(
+                ErrorRecord(
+                    verb="search",
+                    error_class=type(exc).__name__,
+                    message=str(exc),
+                    ts=_iso_now(),
+                    query_id=query.query_id,
+                )
+            )
+        latency_ms = (time.perf_counter() - t0) * 1000
+        pr.search_latencies_ms.append(latency_ms)
+        pr.query_results.append(
+            QueryResult(
+                query_id=query.query_id,
+                top_k_fact_ids=top_ids,
+                latency_ms=latency_ms,
+                error=err,
+            )
         )
-        pr.estimated_cost_usd = est.estimated_usd
+        trace.emit(
+            provider=provider, verb="search", run_id=cfg.run_id,
+            latency_ms=latency_ms,
+            payload_text=query.query,
+            result_count=len(top_ids),
+            error=err,
+            extra={"query_id": query.query_id},
+        )
 
-        # status roll-up
-        if pr.errors and pr.query_results and any(qr.top_k_fact_ids for qr in pr.query_results):
-            pr.status = "partial"
-        elif pr.errors and not any(qr.top_k_fact_ids for qr in pr.query_results):
-            pr.status = "failed"
-        else:
-            pr.status = "ok"
+    pr.total_wall_s = round(time.perf_counter() - run_started, 3)
+    pr.metrics = Metrics(error_count=len(pr.errors))
+    pr.metrics = compute_metrics(pr, gold)
+    # carry over error_count after compute_metrics overwrites
+    pr.metrics.error_count = len(pr.errors)
 
-        results.append(pr)
+    # cost accounting (only matters when --live and provider is paid)
+    est = cost_mod.estimate(
+        provider,
+        add_calls=len(dataset.facts),
+        search_calls=len(dataset.queries),
+        delete_calls=len(dataset.facts) if cfg.cleanup else 0,
+    )
+    pr.estimated_cost_usd = est.estimated_usd
 
-    return results
+    # status roll-up
+    if pr.errors and pr.query_results and any(qr.top_k_fact_ids for qr in pr.query_results):
+        pr.status = "partial"
+    elif pr.errors and not any(qr.top_k_fact_ids for qr in pr.query_results):
+        pr.status = "failed"
+    else:
+        pr.status = "ok"
+
+    return pr
 
 
 def _iso_now() -> str:
