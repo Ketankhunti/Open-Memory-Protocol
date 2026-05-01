@@ -1,0 +1,50 @@
+{"fact_id": "f-0001", "content": "Alice's pizza dough recipe uses 500g flour, 325g water, 10g salt, 1g instant yeast and rests 24 hours.", "tags": ["recipe", "pizza"]}
+{"fact_id": "f-0002", "content": "The user prefers Earl Grey tea brewed at 95C for exactly 4 minutes.", "tags": ["preference", "tea"]}
+{"fact_id": "f-0003", "content": "Bob's home address is 482 Maple Street, Apartment 7B, Portland OR 97201.", "tags": ["contact", "address"]}
+{"fact_id": "f-0004", "content": "The Wi-Fi password for the office router is BlueOctopus42!.", "tags": ["credential"]}
+{"fact_id": "f-0005", "content": "Quarterly board meeting is scheduled for the first Thursday of every quarter at 9am Pacific.", "tags": ["schedule", "meeting"]}
+{"fact_id": "f-0006", "content": "Carol's car is a 2019 Subaru Outback, plate ABC-1234, registered in Oregon.", "tags": ["vehicle"]}
+{"fact_id": "f-0007", "content": "Daniel is allergic to peanuts and tree nuts; he carries an EpiPen at all times.", "tags": ["medical", "allergy"]}
+{"fact_id": "f-0008", "content": "The kitchen renovation budget is capped at $42,500 including labor and materials.", "tags": ["budget", "renovation"]}
+{"fact_id": "f-0009", "content": "Project Aurora deadline is 2026-09-15 and the lead engineer is Eve Patel.", "tags": ["project", "deadline"]}
+{"fact_id": "f-0010", "content": "The bedroom thermostat should be set to 68F at night and 71F during the day.", "tags": ["preference", "temperature"]}
+{"fact_id": "f-0011", "content": "Frank's favorite hiking trail is the Devils Lake Loop near Bend, Oregon, 8.4 miles round trip.", "tags": ["hike", "preference"]}
+{"fact_id": "f-0012", "content": "The dog Buddy needs his arthritis medication twice daily at 7am and 7pm.", "tags": ["pet", "medication"]}
+{"fact_id": "f-0013", "content": "Grace's birthday is March 14th and she prefers vanilla cake with raspberry filling.", "tags": ["birthday", "preference"]}
+{"fact_id": "f-0014", "content": "The garage door opener code is 7259 and the secondary keypad code is 4081.", "tags": ["credential"]}
+{"fact_id": "f-0015", "content": "Henry plays bass guitar in a jazz quartet that rehearses Wednesdays at 6pm.", "tags": ["hobby", "schedule"]}
+{"fact_id": "f-0016", "content": "The escrow officer for the new house purchase is Linda Wu at First American Title.", "tags": ["real-estate"]}
+{"fact_id": "f-0017", "content": "Iris uses an iPhone 15 Pro on Verizon, phone number 503-555-0142.", "tags": ["contact", "device"]}
+{"fact_id": "f-0018", "content": "The annual ski trip is to Mount Bachelor in early February, group size of 8 people.", "tags": ["trip", "schedule"]}
+{"fact_id": "f-0019", "content": "Jacob's preferred deadlift form is sumo stance with belt at 220 kg max.", "tags": ["fitness", "preference"]}
+{"fact_id": "f-0020", "content": "The HVAC filter is size 20x25x4 and should be replaced every 90 days.", "tags": ["maintenance"]}
+{"fact_id": "f-0021", "content": "Kara's wedding anniversary is June 22nd; she likes white peonies and dark chocolate.", "tags": ["anniversary", "preference"]}
+{"fact_id": "f-0022", "content": "The car insurance policy number is GEI-87432109 with State Farm, renews annually in April.", "tags": ["insurance"]}
+{"fact_id": "f-0023", "content": "Liam's son Theo attends Maplewood Elementary, second grade, teacher Ms. Ramirez.", "tags": ["family", "school"]}
+{"fact_id": "f-0024", "content": "The wine cellar is set to 55F at 60 percent humidity; current bottle count is 312.", "tags": ["wine"]}
+{"fact_id": "f-0025", "content": "Maya is vegetarian, loves Thai green curry, and avoids cilantro because it tastes like soap.", "tags": ["preference", "diet"]}
+{"fact_id": "f-0026", "content": "The startup raised a $2.4M seed round on 2025-11-08 led by Foundry Capital.", "tags": ["startup", "funding"]}
+{"fact_id": "f-0027", "content": "Noah's marathon PR is 3:14:22 set at the Berlin Marathon in September 2024.", "tags": ["fitness", "running"]}
+{"fact_id": "f-0028", "content": "The home alarm code is 5298 and the panic word for emergencies is silver-falcon.", "tags": ["credential", "security"]}
+{"fact_id": "f-0029", "content": "Olivia's PhD defense is on November 5th at 2pm in the Stanford Gates Building room 104.", "tags": ["academic", "schedule"]}
+{"fact_id": "f-0030", "content": "The attic insulation is R-49 fiberglass batts installed 2023, manufacturer Owens Corning.", "tags": ["home"]}
+{"fact_id": "f-0031", "content": "Pete prefers Spotify over Apple Music and listens mostly to ambient electronic and bossa nova.", "tags": ["preference", "music"]}
+{"fact_id": "f-0032", "content": "The dental insurance is Delta Dental PPO, member ID 88421, covers two cleanings per year.", "tags": ["insurance", "dental"]}
+{"fact_id": "f-0033", "content": "Quinn's preferred coffee order is a flat white with oat milk, no sugar.", "tags": ["preference", "coffee"]}
+{"fact_id": "f-0034", "content": "The book club meets the last Sunday of the month at 4pm; current book is Project Hail Mary.", "tags": ["schedule", "book-club"]}
+{"fact_id": "f-0035", "content": "Rachel's daughter Emma is 14 and plays varsity volleyball as a setter.", "tags": ["family"]}
+{"fact_id": "f-0036", "content": "The mortgage is a 30-year fixed at 6.125 percent with Wells Fargo, monthly payment $3,842.", "tags": ["mortgage"]}
+{"fact_id": "f-0037", "content": "Sam is fluent in Spanish and Mandarin and is currently learning Korean on Duolingo.", "tags": ["language"]}
+{"fact_id": "f-0038", "content": "The reflux medication is omeprazole 20mg, taken every morning before breakfast.", "tags": ["medication"]}
+{"fact_id": "f-0039", "content": "Tess's favorite restaurant is Le Pigeon in Portland; she always orders the foie gras profiteroles.", "tags": ["preference", "restaurant"]}
+{"fact_id": "f-0040", "content": "The garden has 14 raised beds; tomatoes go in beds 3 through 7 and basil in bed 8.", "tags": ["garden"]}
+{"fact_id": "f-0041", "content": "Uma's preferred therapist is Dr. Patel at the Northwest Counseling Center, sessions Tuesday at 5pm.", "tags": ["health", "schedule"]}
+{"fact_id": "f-0042", "content": "The wedding venue deposit of $4,200 is non-refundable and was paid on 2026-01-15.", "tags": ["wedding", "budget"]}
+{"fact_id": "f-0043", "content": "Victor's son Max takes piano lessons Saturdays at 10am with Ms. Chen at the Conservatory.", "tags": ["family", "schedule"]}
+{"fact_id": "f-0044", "content": "The kombucha SCOBY needs feeding with 8 cups of sweet tea every 7 to 10 days.", "tags": ["kitchen"]}
+{"fact_id": "f-0045", "content": "Wendy's marathon training plan is the Hanson method with peak weekly mileage of 60.", "tags": ["fitness"]}
+{"fact_id": "f-0046", "content": "The travel agent for the Japan trip is Hiroshi Tanaka at Pacific Routes, fluent in English.", "tags": ["travel"]}
+{"fact_id": "f-0047", "content": "Xavier prefers manual transmission cars and currently drives a 2018 Mazda Miata RF.", "tags": ["preference", "vehicle"]}
+{"fact_id": "f-0048", "content": "The pool chemistry should run pH 7.4 with chlorine at 2.5 ppm and CYA below 50.", "tags": ["pool"]}
+{"fact_id": "f-0049", "content": "Yara's favorite hike is the West Coast Trail in BC, 75 km over 5 to 7 days.", "tags": ["hike", "preference"]}
+{"fact_id": "f-0050", "content": "The streaming subscriptions are Netflix Premium, HBO Max, and Apple TV+, billed annually.", "tags": ["subscription"]}

@@ -28,3 +28,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Eval kit run artifacts
+eval-*.md
+eval-*.jsonl

@@ -50,3 +50,11 @@ Coverage gates (Constitution Principle II):
 That's the contract. Per Constitution Principle II
 ([NON-NEGOTIABLE](../.specify/memory/constitution.md)), if the suite is
 green your adapter is a drop-in replacement for any other.
+
+## Tooling
+
+- `omp-validate-spec` — validate the OpenAPI spec against the 3.x meta-schema.
+- `openmem-eval` — manual benchmark harness comparing recall, MRR, and
+  latency across configured providers. **Never runs in CI.** Default
+  invocation makes zero network calls. See
+  [specs/004-eval-kit/quickstart.md](../specs/004-eval-kit/quickstart.md).

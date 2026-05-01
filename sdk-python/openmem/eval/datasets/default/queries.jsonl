@@ -1,0 +1,20 @@
+{"query_id": "q-0001", "query": "What is the recipe for Alice's pizza dough?", "gold_fact_ids": ["f-0001"]}
+{"query_id": "q-0002", "query": "How does the user like their tea?", "gold_fact_ids": ["f-0002"]}
+{"query_id": "q-0003", "query": "What is Bob's home address?", "gold_fact_ids": ["f-0003"]}
+{"query_id": "q-0004", "query": "What is the office Wi-Fi password?", "gold_fact_ids": ["f-0004"]}
+{"query_id": "q-0005", "query": "When is the quarterly board meeting?", "gold_fact_ids": ["f-0005"]}
+{"query_id": "q-0006", "query": "Tell me about Carol's car including license plate.", "gold_fact_ids": ["f-0006"]}
+{"query_id": "q-0007", "query": "What food allergies does Daniel have?", "gold_fact_ids": ["f-0007"]}
+{"query_id": "q-0008", "query": "How much money is set aside for the kitchen renovation?", "gold_fact_ids": ["f-0008"]}
+{"query_id": "q-0009", "query": "Who leads Project Aurora and when is the deadline?", "gold_fact_ids": ["f-0009"]}
+{"query_id": "q-0010", "query": "What temperature should the bedroom be at night?", "gold_fact_ids": ["f-0010"]}
+{"query_id": "q-0011", "query": "Where does Frank like to go hiking?", "gold_fact_ids": ["f-0011"]}
+{"query_id": "q-0012", "query": "When does the dog need his medicine?", "gold_fact_ids": ["f-0012"]}
+{"query_id": "q-0013", "query": "What kind of birthday cake does Grace prefer?", "gold_fact_ids": ["f-0013"]}
+{"query_id": "q-0014", "query": "What are the garage door codes?", "gold_fact_ids": ["f-0014"]}
+{"query_id": "q-0015", "query": "When does Henry's jazz quartet rehearse?", "gold_fact_ids": ["f-0015"]}
+{"query_id": "q-0016", "query": "What dietary restrictions does Maya have and what does she like to eat?", "gold_fact_ids": ["f-0025"]}
+{"query_id": "q-0017", "query": "What is Quinn's coffee order?", "gold_fact_ids": ["f-0033"]}
+{"query_id": "q-0018", "query": "What languages does Sam speak?", "gold_fact_ids": ["f-0037"]}
+{"query_id": "q-0019", "query": "When and where is Olivia's PhD defense?", "gold_fact_ids": ["f-0029"]}
+{"query_id": "q-0020", "query": "What car does Xavier drive and what kind of transmission does he prefer?", "gold_fact_ids": ["f-0047"]}

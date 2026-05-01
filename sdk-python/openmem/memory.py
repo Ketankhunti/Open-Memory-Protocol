@@ -244,5 +244,22 @@ class Memory:
             self._capabilities = self._adapter.capabilities()
         return self._capabilities
 
+    def wait_for_ingest(
+        self,
+        ids: list[str],
+        user_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> None:
+        """Block until each id in ``ids`` is readable upstream.
+
+        Pass-through to ``BaseAdapter.wait_for_ingest`` whose default is a
+        no-op for synchronous-ingestion adapters (e.g. postgres). Async
+        adapters (mem0, supermemory) override the method to poll. The eval
+        kit relies on this hook to make ingest observable across providers
+        without polluting the OMP protocol surface.
+        """
+        self._adapter.wait_for_ingest(ids, user_id, timeout=timeout)
+
 
 __all__ = ["Memory", "_resolve_adapter"]
