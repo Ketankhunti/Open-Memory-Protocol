@@ -42,6 +42,7 @@ jobs:
       - name: Postgres adapter coverage (≥90%)
         run: |
           pytest sdk-python/tests \
+            -o addopts="" \
             --cov=openmem.adapters.postgres \
             --cov-report=term-missing \
             --cov-fail-under=90
