@@ -57,4 +57,6 @@ green your adapter is a drop-in replacement for any other.
 - `openmem-eval` — manual benchmark harness comparing recall, MRR, and
   latency across configured providers. **Never runs in CI.** Default
   invocation makes zero network calls. See
-  [specs/004-eval-kit/quickstart.md](../specs/004-eval-kit/quickstart.md).
+  [specs/004-eval-kit/quickstart.md](../specs/004-eval-kit/quickstart.md)
+  for usage and [docs/eval/](../docs/eval/README.md) for a committed
+  sample report + trace from a real postgres run.

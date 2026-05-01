@@ -46,7 +46,7 @@ print(ctx.text)
 
 ## Tooling
 
-- `openmem-eval` — manual benchmark harness comparing recall, MRR, and latency across configured providers. **Never runs in CI.** Default invocation is a dry-run that makes zero network calls. See [specs/004-eval-kit/quickstart.md](specs/004-eval-kit/quickstart.md).
+- `openmem-eval` — manual benchmark harness comparing recall, MRR, and latency across configured providers. **Never runs in CI.** Default invocation is a dry-run that makes zero network calls. See [specs/004-eval-kit/quickstart.md](specs/004-eval-kit/quickstart.md) for usage and [docs/eval/](docs/eval/README.md) for a sample report and trace from a real postgres run.
 
 ## License
 
