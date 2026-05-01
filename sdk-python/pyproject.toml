@@ -66,4 +66,5 @@ timeout = 30
 asyncio_mode = "auto"
 markers = [
     "live: tests that hit real provider APIs (auto-skipped unless OMP_LIVE=1; budget up to 90s)",
+    "slow: tests that take >30s (e.g. spin up a throwaway venv); may be deselected on fast CI runs",
 ]
