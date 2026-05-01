@@ -317,3 +317,35 @@ def test_add_serializes_with_exclude_none() -> None:
     # exclude_none â†’ no `tags`, `scope`, `source`, etc. None fields
     assert "tags" not in body
     assert "scope" not in body
+
+
+# ---------------------------------------------------------------------------
+# M2.1 — Memory.status passthrough (T046b / data-model.md §1)
+# ---------------------------------------------------------------------------
+
+
+def test_passthrough_mirrors_status() -> None:
+    """Status field flows through verbatim from upstream to OMP caller."""
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                **_memory_payload(),
+                "status": "indexing",
+            },
+        )
+
+    adapter = _make_adapter(handler)
+    mem = adapter.get("mem_x")
+    assert mem.status == "indexing"
+
+
+def test_passthrough_status_absent_yields_none() -> None:
+    """Legacy upstream with no status field MUST round-trip as None."""
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_memory_payload())
+
+    adapter = _make_adapter(handler)
+    mem = adapter.get("mem_x")
+    assert mem.status is None
+

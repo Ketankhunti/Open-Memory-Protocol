@@ -23,7 +23,11 @@ from urllib.parse import quote
 
 import httpx
 
-from ..errors import ProviderError, UnsupportedCapabilityError
+from ..errors import (
+    InvalidRequestError,
+    ProviderError,
+    UnsupportedCapabilityError,
+)
 from ..types import (
     AuditEntry,
     Capabilities,
@@ -234,6 +238,13 @@ class PassthroughAdapter(BaseAdapter):
         if until is not None:
             params["until"] = self._qs_dt(until)
         if cursor is not None:
+            # Boundary sanity check (M2.1 §2a): reject oversized or
+            # non-string cursors BEFORE issuing the HTTP call so a
+            # crafted cursor cannot be smuggled to the upstream server.
+            if not isinstance(cursor, str) or len(cursor) > 256:
+                raise InvalidRequestError(
+                    "malformed cursor", provider="passthrough"
+                )
             params["cursor"] = cursor
         resp = self._request("GET", "/memories", params=params)
         return self._parse(resp, MemoryPage)

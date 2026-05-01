@@ -76,13 +76,13 @@ def _resolve_adapter(provider: str, **config: Any) -> BaseAdapter:
         )
 
     if provider == "supermemory":
-        from .adapters.supermemory import SupermemoryAdapter
+        from .adapters.supermemory import DEFAULT_BASE_URL, SupermemoryAdapter
 
         if not api_key:
             raise ValueError("supermemory provider requires api_key=...")
         return SupermemoryAdapter(
             api_key=api_key,
-            base_url=config.pop("base_url", "https://api.supermemory.ai/v1"),
+            base_url=config.pop("base_url", DEFAULT_BASE_URL),
             transport=config.pop("transport", None),
         )
 

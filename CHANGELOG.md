@@ -2,6 +2,80 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] — Unreleased (M2.1 — Live-API bridges)
+
+### Added
+
+- **`Memory.status`** (additive, optional) — `"queued" | "indexing" | "done" | "failed" | None`.
+  Mirrored in OpenAPI (`spec/omp-0.1.openapi.yaml`) and the Pydantic model
+  (`sdk-python/openmem/types.py`). Legacy callers see `None` and continue to work.
+- **`Error.code = "ingestion_timeout"`** (additive) for bounded-poll exhaustion
+  on async-ingestion providers (mem0, supermemory). Reuses `ProviderError`.
+- **`openmem.adapters._ingest`** — `poll_until(fn, timeout, *, base_delay, max_delay, ...)`
+  helper with exponential back-off (`min(max_delay, base_delay * 2**n)`) and
+  strict timeout enforcement. `OMP_INGEST_TIMEOUT` env var (default 60 s,
+  positive int in `(0, 600]`; out-of-range → default + warning).
+- **`openmem.adapters._cursor`** — opaque pagination cursor codec
+  (`base64-urlsafe(json({"page": N}))`) with hard caps
+  (`MAX_PAGE_NUMBER=10_000`, length ≤ 256 bytes). Defends against
+  cursor-injection attacks; malformed cursors raise `InvalidRequestError`
+  BEFORE any upstream call.
+- **Live-test harness**: `OMP_LIVE=1` plus per-provider `*_API_KEY` env vars
+  swap mock fixtures for real adapters; `@pytest.mark.live` tests
+  auto-skip when off. Per-test finalizers track every created memory id and
+  call `adapter.delete(id)` at teardown (FR-119). API keys are NEVER logged.
+- **429 retry helper** in `tests/conftest.py` (`retry_once_on_rate_limit`)
+  honours `retry_after` (capped at 30 s) and retries exactly once.
+
+### Changed (per-provider rewrites)
+
+- **`Mem0Adapter`** — full rewrite for `mem0ai>=2.0,<3`:
+  - `add` posts `messages=[{role, content}]` and returns
+    `Memory(id=event_id, status="queued", x-mem0={event_id, original_content})`.
+  - `get` polls via `_ingest.poll_until`; on timeout raises
+    `ProviderError(code="ingestion_timeout")`.
+  - `list` uses `version="v2"` + page-based cursor codec.
+  - `search` uses `version="v2"` and a strict pre-flight `user_id` check.
+  - LLM-rewrite preserved via `x-mem0.original_content`.
+- **`SupermemoryAdapter`** — full rewrite for the public `/v3` API:
+  - Default `base_url = "https://api.supermemory.ai/v3"`; overridable via
+    `SUPERMEMORY_BASE_URL`.
+  - `list` uses `POST /memories/list`; `search` uses `POST /search`
+    (chunk-shaped response).
+  - `Memory.user_id` is read **only** from `metadata.user_id`
+    (top-level `userId` is ignored — defends against cross-user metadata
+    spoofing).
+  - `update` excluded from advertised verbs and raises
+    `UnsupportedCapabilityError` BEFORE any HTTP call.
+- **`LettaAdapter`** — full rewrite for `letta-client>=1.10`:
+  - Constructor uses `api_key=` (was `token=`).
+  - `add` returns `list[Passage]`; the OMP `Memory.id` encodes the FIRST
+    passage id; ALL passage ids stash under `x-letta.passage_ids` for
+    fan-out delete.
+  - `delete` iterates over EVERY passage id; the kwarg name is
+    introspected at init via `inspect.signature(passages.delete)`.
+  - `search` uses `top_k=` (NOT `limit=`).
+  - `get` and `update` are no longer advertised; both raise
+    `UnsupportedCapabilityError` BEFORE any network call.
+  - Per-`user_id` agent cache with invalidate-and-retry on `NotFound`.
+
+### Security
+
+- API keys never appear in log records (verified by `test_no_credentials_in_logs`).
+- Cursor strings cannot be smuggled to upstream (passthrough rejects
+  oversized cursors at the boundary).
+- Empty / whitespace-only `user_id` rejected BEFORE any upstream call on
+  every adapter — defends cross-user scoping.
+- Strict env-var parsing (`OMP_LIVE` requires exact `"1"`; `*_API_KEY`
+  whitespace-only treated as unset).
+
+### Breaking (semantic, no API change)
+
+- `Mem0Adapter.add` and `SupermemoryAdapter.add` no longer guarantee
+  `status="done"` on return — async ingestion now surfaces as
+  `status="queued"`. Callers that need synchronous semantics should poll
+  via `get(id)` or rely on the bounded-poll budget.
+
 ## [0.2.0] — Unreleased (M2)
 
 ### Added (US1 — Postgres pooling)

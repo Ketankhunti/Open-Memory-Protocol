@@ -39,8 +39,91 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
+# Keep test-time poll budgets short so async-ingestion adapters don't
+# block the suite for 60 s when a delete-then-get races the poll loop.
+# A real OMP_INGEST_TIMEOUT in the environment is honoured (no override).
+# In live mode, raise the floor to 60 s — real providers (mem0, supermemory)
+# need ~25-45 s for upstream ingestion to materialise.
+if (os.environ.get("OMP_LIVE") or "").strip() == "1":
+    os.environ.setdefault("OMP_INGEST_TIMEOUT", "45")
+    # NOTE: We intentionally do NOT set OMP_INGEST_BLOCK globally here.
+    # Mock-mode unit tests under tests/adapters/ exercise the raw
+    # async-add response shape (`status='queued'`, etc.) and would break
+    # if the adapter blocked on every add(). Live contract fixtures pass
+    # `block_on_add=True` directly via the `mem0_adapter` /
+    # `supermemory_adapter` factories below.
+else:
+    os.environ.setdefault("OMP_INGEST_TIMEOUT", "1")
+
 # Use an env var so CI without docker can fall back to a real Postgres URL.
 _USE_TESTCONTAINER = os.environ.get("PG_URL") is None
+
+
+# ---------------------------------------------------------------------------
+# M2.1 — strict live-mode env-var parsing (data-model.md §4a / FR-118).
+#
+# `OMP_LIVE` activates live mode iff stripped value is exactly "1".
+# `<PROVIDER>_API_KEY` activates the matching provider iff stripped value
+# is non-empty AFTER `.strip()`. Whitespace-only / malformed values keep
+# the provider in mock mode (no half-configured states).
+#
+# API-key values MUST NEVER be logged — we only ever log a flag-state
+# message, never the value, prefix, length, or hash (defends against
+# credential exfiltration via debug logging).
+# ---------------------------------------------------------------------------
+
+import logging as _logging
+
+_LIVE_LOG = _logging.getLogger("openmem.tests.live_mode")
+
+
+def _is_live_mode_active(provider: str) -> bool:
+    """Return True iff live mode is opt-in AND the matching key is set.
+
+    Strict parsing per data-model.md §4a:
+      - OMP_LIVE must equal exactly "1" after `.strip()`.
+      - <PROVIDER>_API_KEY must be non-empty after `.strip()`.
+    """
+    if (os.environ.get("OMP_LIVE") or "").strip() != "1":
+        return False
+    key_name = f"{provider.upper()}_API_KEY"
+    if not (os.environ.get(key_name) or "").strip():
+        return False
+    return True
+
+
+# Maximum sleep we will honour from a server's `retry_after` hint, in
+# seconds. Caps a hostile server's ability to stall the test suite via
+# absurd retry_after values (defence in depth — EC-106).
+_MAX_RETRY_AFTER = 30.0
+
+
+def retry_once_on_rate_limit(fn, *, sleeper=None):
+    """Invoke ``fn``; on `RateLimitedError`, sleep then re-invoke once.
+
+    Honours the optional ``retry_after`` attribute (seconds) on the
+    exception, capped at :data:`_MAX_RETRY_AFTER` to neutralise hostile
+    or buggy servers. A second `RateLimitedError` propagates unchanged
+    (EC-106 — we retry exactly once).
+    """
+    import time as _time
+
+    from openmem.errors import RateLimitedError
+
+    sleep = sleeper if sleeper is not None else _time.sleep
+    try:
+        return fn()
+    except RateLimitedError as exc:
+        retry_after_raw = getattr(exc, "retry_after", None)
+        try:
+            delay = float(retry_after_raw) if retry_after_raw is not None else 1.0
+        except (TypeError, ValueError):
+            delay = 1.0
+        if delay < 0:
+            delay = 1.0
+        delay = min(delay, _MAX_RETRY_AFTER)
+        sleep(delay)
+        return fn()
 
 
 @pytest.fixture(scope="session")
@@ -128,6 +211,37 @@ def _clean_db(request):
         with conn.cursor() as cur:
             cur.execute("TRUNCATE TABLE memories")
         conn.commit()
+    # M2.1 live-mode: between each test, delete only the ids that the
+    # tracked finalizer has accumulated since the start of the run, so
+    # leftover state from one test in the same module doesn't pollute
+    # pagination/list assertions in the next. Touching only known ids
+    # keeps overhead bounded (vs full list+delete-by-user_id sweeps).
+    if (os.environ.get("OMP_LIVE") or "").strip() == "1":
+        for fname, provider in (
+            ("mem0_adapter", "mem0"),
+            ("supermemory_adapter", "supermemory"),
+            ("letta_adapter", "letta"),
+        ):
+            if fname not in request.fixturenames:
+                continue
+            if not _is_live_mode_active(provider):
+                continue
+            try:
+                live_adapter = request.getfixturevalue(fname)
+            except Exception:  # noqa: BLE001
+                continue
+            tracked = getattr(live_adapter, "_omp_test_created", None)
+            if not tracked:
+                continue
+            # Snapshot + clear the tracker so the module-end finalizer
+            # doesn't redundantly retry these ids.
+            ids_to_clear = list(tracked)
+            tracked.clear()
+            for mid in ids_to_clear:
+                try:
+                    live_adapter.delete(mid)
+                except Exception:  # noqa: BLE001
+                    pass
     yield
 
 
@@ -362,10 +476,11 @@ class _Mem0ClientShim:
             "metadata": meta,
         }
 
-    def update(self, *, memory_id, data):
+    def update(self, *, memory_id, text=None, data=None, **_):
         from openmem.types import MemoryUpdate
 
-        return self._b.update(memory_id, MemoryUpdate(content=data))
+        body = text if text is not None else data
+        return self._b.update(memory_id, MemoryUpdate(content=body))
 
     def update_metadata(self, *, memory_id, metadata):
         from openmem.types import MemoryUpdate
@@ -381,7 +496,17 @@ class _Mem0ClientShim:
     def delete(self, *, memory_id):
         self._b.delete(memory_id)
 
-    def get_all(self, *, user_id, limit=50, page=1):
+    def get_all(self, *, user_id=None, limit=50, page=1, page_size=None, version=None, filters=None, **_):
+        # Mock shim accepts both legacy (user_id=) and v2 (filters=) shapes.
+        if user_id is None and isinstance(filters, dict):
+            user_id = filters.get("user_id")
+            if user_id is None and "AND" in filters:
+                for clause in filters.get("AND", []):
+                    if clause.get("key") == "user_id":
+                        user_id = clause.get("value")
+                        break
+        if page_size is not None:
+            limit = page_size
         cursor = self._cursors.get(page)
         page_obj = self._b.list(user_id=user_id, limit=limit, cursor=cursor)
         # Remember the next cursor so a subsequent page=N+1 call works.
@@ -397,7 +522,12 @@ class _Mem0ClientShim:
             for m in page_obj.items
         ]
 
-    def search(self, *, query, user_id, limit=10):
+    def search(self, *, query, user_id=None, limit=10, version=None, filters=None, **_):
+        # Mock-mode shim for mem0 v2 search shape: real client expects
+        # `filters={"user_id": "..."}` (since mem0ai 2.x). The shim accepts
+        # either the legacy `user_id=` kwarg OR the new `filters={"user_id":...}`.
+        if user_id is None and isinstance(filters, dict):
+            user_id = filters.get("user_id") or filters.get("AND", [{}])[0].get("value")
         results = self._b.search(query=query, user_id=user_id, limit=limit)
         return [
             {
@@ -413,12 +543,17 @@ class _Mem0ClientShim:
 
 
 @pytest.fixture(scope="module")
-def mem0_adapter(postgres_adapter):
-    """Mem0Adapter wired to a PostgresAdapter-backed shim (mock mode)."""
-    if os.environ.get("MEM0_API_KEY"):  # pragma: no cover - live mode
+def mem0_adapter(request, postgres_adapter):
+    """Mem0Adapter: live mode iff OMP_LIVE=1 + MEM0_API_KEY; else mock."""
+    if _is_live_mode_active("mem0"):  # pragma: no cover - live mode
         from openmem.adapters.mem0 import Mem0Adapter
 
-        return Mem0Adapter(api_key=os.environ["MEM0_API_KEY"])
+        _LIVE_LOG.info("mem0 live mode enabled")
+        adapter = Mem0Adapter(
+            api_key=os.environ["MEM0_API_KEY"].strip(),
+        )
+        _register_live_finalizer(request, adapter, "mem0")
+        return adapter
     from openmem.adapters.mem0 import Mem0Adapter
 
     return Mem0Adapter(
@@ -434,7 +569,18 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
     from openmem.errors import OMPError
     from openmem.types import MemoryInput, MemorySource
 
-    _ID_RE = _re.compile(r"^/memories/([^/]+)$")
+    _ID_RE = _re.compile(r"^/documents/([^/]+)$")
+
+    def _extract_user_id(filters: dict | None) -> str:
+        """Accept either legacy `{user_id:X}` or M2.1 `{AND:[{key,value}]}`."""
+        if not isinstance(filters, dict):
+            return ""
+        if "user_id" in filters:
+            return filters.get("user_id") or ""
+        for clause in filters.get("AND") or []:
+            if isinstance(clause, dict) and clause.get("key") == "user_id":
+                return clause.get("value") or ""
+        return ""
 
     def _err_response(exc: OMPError) -> httpx.Response:
         status = {
@@ -448,6 +594,7 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
 
     def _to_record(mem) -> dict[str, Any]:
         meta: dict[str, Any] = {
+            "user_id": mem.user_id,  # M2.1 — user_id lives in metadata
             "scope": mem.scope,
             "tags": mem.tags,
             "source": (
@@ -476,12 +623,14 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
             except Exception:
                 body = {}
         try:
-            if method == "POST" and path == "/memories":
+            if method == "POST" and path == "/documents":
                 meta = body.get("metadata") or {}
                 src = meta.get("source")
+                # M2.1: user_id is read from metadata.user_id (NOT top-level).
+                user_id = meta.get("user_id") or body.get("user_id")
                 kw: dict[str, Any] = {
                     "content": body["content"],
-                    "user_id": body["user_id"],
+                    "user_id": user_id,
                     "scope": meta.get("scope"),
                     "tags": meta.get("tags"),
                 }
@@ -494,8 +643,47 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
                 mem = backend.add(
                     MemoryInput(**{k: v for k, v in kw.items() if v is not None})
                 )
-                return httpx.Response(200, json=_to_record(mem))
-            if method == "GET" and path == "/memories":
+                # Mock-mode shim returns the full record (back-compat path
+                # the adapter still recognises). The live API would return
+                # only `{id, status:"queued"}` — we keep parity by adding a
+                # `status` field to make the queued semantics observable.
+                rec = _to_record(mem)
+                rec["status"] = "queued"
+                return httpx.Response(200, json=rec)
+            # M2.1: list is now POST /documents/list with {limit, page, filters}.
+            if method == "POST" and path == "/documents/list":
+                filters = body.get("filters") or {}
+                limit = int(body.get("limit", 50))
+                page_num = int(body.get("page", 1))
+                # Walk backend.list cursor-by-cursor up to the requested page
+                # so the shim faithfully implements 1-indexed paging.
+                user_id = _extract_user_id(filters)
+                pg_cursor = None
+                page_obj = backend.list(
+                    user_id=user_id, limit=limit, cursor=pg_cursor
+                )
+                current = 1
+                while current < page_num and page_obj.next_cursor is not None:
+                    pg_cursor = page_obj.next_cursor
+                    page_obj = backend.list(
+                        user_id=user_id, limit=limit, cursor=pg_cursor
+                    )
+                    current += 1
+                # Estimate totalPages: current page + 1 if more remain.
+                total_pages = current + (1 if page_obj.next_cursor else 0)
+                return httpx.Response(
+                    200,
+                    json={
+                        "memories": [_to_record(m) for m in page_obj.items],
+                        "pagination": {
+                            "currentPage": current,
+                            "limit": limit,
+                            "totalPages": max(total_pages, current),
+                        },
+                    },
+                )
+            if method == "GET" and path == "/documents":
+                # Legacy GET shape (kept for backward-compat).
                 page = backend.list(
                     user_id=params["user_id"],
                     limit=int(params.get("limit", 50)),
@@ -516,7 +704,40 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
                 if method == "DELETE":
                     backend.delete(mid)
                     return httpx.Response(204)
+            # M2.1: search is now POST /search with {q, limit, filters}.
+            if method == "POST" and path == "/search":
+                filters = body.get("filters") or {}
+                results = backend.search(
+                    query=body["q"],
+                    user_id=_extract_user_id(filters),
+                    limit=int(body.get("limit", 10)),
+                    min_score=body.get("threshold"),
+                )
+                return httpx.Response(
+                    200,
+                    json={
+                        "results": [
+                            {
+                                "documentId": r.memory.id,
+                                "score": r.score,
+                                "title": r.memory.content,
+                                "chunks": [
+                                    {"content": r.memory.content, "score": r.score}
+                                ],
+                                "metadata": {
+                                    "user_id": r.memory.user_id,
+                                    "scope": r.memory.scope,
+                                    "tags": r.memory.tags,
+                                },
+                                "createdAt": r.memory.created_at.isoformat(),
+                            }
+                            for r in results
+                        ],
+                        "total": len(results),
+                    },
+                )
             if method == "POST" and path == "/memories/search":
+                # Legacy search route (kept for backward-compat).
                 results = backend.search(
                     query=body["query"],
                     user_id=body["user_id"],
@@ -538,12 +759,17 @@ def _build_supermemory_transport(backend) -> httpx.MockTransport:
 
 
 @pytest.fixture(scope="module")
-def supermemory_adapter(postgres_adapter):
-    """SupermemoryAdapter wired to a PostgresAdapter-backed REST shim."""
-    if os.environ.get("SUPERMEMORY_API_KEY"):  # pragma: no cover
+def supermemory_adapter(request, postgres_adapter):
+    """SupermemoryAdapter: live mode iff OMP_LIVE=1 + SUPERMEMORY_API_KEY; else mock."""
+    if _is_live_mode_active("supermemory"):  # pragma: no cover
         from openmem.adapters.supermemory import SupermemoryAdapter
 
-        return SupermemoryAdapter(api_key=os.environ["SUPERMEMORY_API_KEY"])
+        _LIVE_LOG.info("supermemory live mode enabled")
+        adapter = SupermemoryAdapter(
+            api_key=os.environ["SUPERMEMORY_API_KEY"].strip(),
+        )
+        _register_live_finalizer(request, adapter, "supermemory")
+        return adapter
     from openmem.adapters.supermemory import SupermemoryAdapter
 
     return SupermemoryAdapter(
@@ -571,45 +797,67 @@ class _LettaPassagesShim:
     def _restore(passage_id: str) -> str:
         return passage_id if passage_id.startswith("mem_") else f"mem_{passage_id}"
 
-    def create(self, *, agent_id, text, metadata=None):
+    def create(self, *, agent_id, text, metadata=None, tags=None, **_):
         from openmem.types import MemoryInput
 
         meta = metadata or {}
+        # M2.1: live letta only persists `tags=[...]`. The adapter
+        # encodes scope and `x-…` extension keys into reserved tag
+        # prefixes (`_omp_scope:`, `_omp_x:<k>:<v>`). Mirror that
+        # encoding here so the mock-mode shim round-trips identically.
+        decoded_scope: str | None = meta.get("scope")
+        decoded_tags: list[str] = list(meta.get("tags") or [])
+        decoded_x: dict[str, Any] = {}
+        for t in tags or []:
+            ts = str(t)
+            if ts.startswith("_omp_scope:"):
+                decoded_scope = ts[len("_omp_scope:"):]
+            elif ts.startswith("_omp_x:"):
+                payload = ts[len("_omp_x:"):]
+                k, _sep, v = payload.partition(":")
+                if k:
+                    decoded_x[k] = v
+            else:
+                decoded_tags.append(ts)
         kw: dict[str, Any] = {
             "content": text,
             "user_id": self._user_for(agent_id),
-            "scope": meta.get("scope"),
-            "tags": meta.get("tags"),
+            "scope": decoded_scope,
+            "tags": decoded_tags or None,
         }
         kw = {k: v for k, v in kw.items() if v is not None}
         for k, v in meta.items():
             if k.startswith("x-"):
                 kw[k] = v
+        for k, v in decoded_x.items():
+            kw[k] = v
         mem = self._b.add(MemoryInput(**kw))
-        out_meta = dict(meta)
-        out_meta["scope"] = mem.scope
-        out_meta["tags"] = mem.tags
+        out_tags: list[str] = list(mem.tags or [])
+        if mem.scope is not None:
+            out_tags.append(f"_omp_scope:{mem.scope}")
         for k, v in (mem.model_extra or {}).items():
             if k.startswith("x-"):
-                out_meta[k] = v
+                out_tags.append(f"_omp_x:{k}:{v}")
         return {
             "id": self._strip(mem.id),
             "text": mem.content,
             "created_at": mem.created_at.isoformat(),
-            "metadata": out_meta,
+            "tags": out_tags,
         }
 
     def retrieve(self, *, agent_id, passage_id):
         mem = self._b.get(self._restore(passage_id))
-        meta: dict[str, Any] = {"scope": mem.scope, "tags": mem.tags}
+        out_tags: list[str] = list(mem.tags or [])
+        if mem.scope is not None:
+            out_tags.append(f"_omp_scope:{mem.scope}")
         for k, v in (mem.model_extra or {}).items():
             if k.startswith("x-"):
-                meta[k] = v
+                out_tags.append(f"_omp_x:{k}:{v}")
         return {
             "id": self._strip(mem.id),
             "text": mem.content,
             "created_at": mem.created_at.isoformat(),
-            "metadata": meta,
+            "tags": out_tags,
         }
 
     def delete(self, *, agent_id, passage_id):
@@ -617,43 +865,52 @@ class _LettaPassagesShim:
 
     def list(self, *, agent_id, limit=50, after=None):
         user_id = self._user_for(agent_id)
-        # `after` arrives as the adapter-encoded id ("mem_<agent>_<passage>").
-        # Decode to the stripped passage-id we used as the map key.
-        after_key = None
-        if after:
-            rest = after[4:] if after.startswith("mem_") else after
-            sep = rest.rfind("_")
-            after_key = rest[sep + 1 :] if sep >= 0 else rest
+        # `after` arrives as the raw passage id (live letta cursor shape);
+        # the adapter decodes its OMP cursor envelope before passing through.
+        after_key = after if after else None
         pg_cursor = self._parent._after_to_cursor.get(after_key) if after_key else None
         page = self._b.list(user_id=user_id, limit=limit, cursor=pg_cursor)
         if page.items and page.next_cursor:
             last_id = self._strip(page.items[-1].id)
             self._parent._after_to_cursor[last_id] = page.next_cursor
-        return [
-            {
+        out: list[dict[str, Any]] = []
+        for m in page.items:
+            out_tags: list[str] = list(m.tags or [])
+            if m.scope is not None:
+                out_tags.append(f"_omp_scope:{m.scope}")
+            for k, v in (m.model_extra or {}).items():
+                if k.startswith("x-"):
+                    out_tags.append(f"_omp_x:{k}:{v}")
+            out.append({
                 "id": self._strip(m.id),
                 "text": m.content,
                 "created_at": m.created_at.isoformat(),
-                "metadata": {"scope": m.scope, "tags": m.tags},
-            }
-            for m in page.items
-        ]
+                "tags": out_tags,
+            })
+        return out
 
     def search(self, *, agent_id, query, limit=10):
         user_id = self._user_for(agent_id)
         results = self._b.search(query=query, user_id=user_id, limit=limit)
-        return [
-            {
+        out: list[dict[str, Any]] = []
+        for r in results:
+            m = r.memory
+            out_tags: list[str] = list(m.tags or [])
+            if m.scope is not None:
+                out_tags.append(f"_omp_scope:{m.scope}")
+            for k, v in (m.model_extra or {}).items():
+                if k.startswith("x-"):
+                    out_tags.append(f"_omp_x:{k}:{v}")
+            out.append({
                 "passage": {
-                    "id": self._strip(r.memory.id),
-                    "text": r.memory.content,
-                    "created_at": r.memory.created_at.isoformat(),
-                    "metadata": {"scope": r.memory.scope, "tags": r.memory.tags},
+                    "id": self._strip(m.id),
+                    "text": m.content,
+                    "created_at": m.created_at.isoformat(),
+                    "tags": out_tags,
                 },
                 "score": r.score,
-            }
-            for r in results
-        ]
+            })
+        return out
 
 
 class _LettaAgentsShim:
@@ -682,12 +939,26 @@ class _LettaClientShim:
 
 
 @pytest.fixture(scope="module")
-def letta_adapter(postgres_adapter):
-    """LettaAdapter wired to a PostgresAdapter-backed shim (mock mode)."""
-    if os.environ.get("LETTA_API_KEY"):  # pragma: no cover
+def letta_adapter(request, postgres_adapter):
+    """LettaAdapter: live mode iff OMP_LIVE=1 + LETTA_API_KEY; else mock."""
+    if _is_live_mode_active("letta"):  # pragma: no cover
         from openmem.adapters.letta import LettaAdapter
 
-        return LettaAdapter(api_key=os.environ["LETTA_API_KEY"])
+        _LIVE_LOG.info("letta live mode enabled")
+        adapter = LettaAdapter(api_key=os.environ["LETTA_API_KEY"].strip())
+        # M2.1: letta plans cap concurrent agents (default 3); proactively
+        # purge any leftover agents from prior runs so this module's
+        # fixtures don't fail with HTTP 402.
+        try:
+            for _agent in adapter._client.agents.list():
+                try:
+                    adapter._client.agents.delete(_agent.id)
+                except Exception:  # noqa: BLE001
+                    pass
+        except Exception as exc:  # noqa: BLE001
+            _LIVE_LOG.warning("letta pre-cleanup skipped: %s", type(exc).__name__)
+        _register_live_finalizer(request, adapter, "letta")
+        return adapter
     from openmem.adapters.letta import LettaAdapter
 
     return LettaAdapter(
@@ -708,6 +979,12 @@ def letta_adapter(postgres_adapter):
 
 _TEST_TO_VERB = {
     "test_update_supersedes_appends_to_history": "update",
+    # M2.1 — letta drops `get` from its advertised verbs (FR-116). Skip
+    # contract tests that exercise it for adapters that lack it.
+    "test_add_then_get_roundtrip": "get",
+    "test_delete_then_get_raises_not_found": "get",
+    "test_status_round_trips": "get",
+    "test_x_extension_field_round_trips_via_adapter": "get",
 }
 
 # Verbs each adapter advertises (mirrors each adapter's _CAPS). Used to
@@ -718,7 +995,8 @@ _ADAPTER_VERBS = {
     "passthrough": {"add", "get", "update", "delete", "list", "search", "context", "audit"},
     "mem0": {"add", "get", "update", "delete", "list", "search", "context"},
     "supermemory": {"add", "get", "delete", "list", "search", "context"},
-    "letta": {"add", "get", "delete", "list", "search", "context"},
+    # M2.1: letta has no `get`, no `update`.
+    "letta": {"add", "delete", "list", "search", "context"},
 }
 
 
@@ -738,3 +1016,113 @@ def pytest_runtest_setup(item):
         return
     if verb not in _ADAPTER_VERBS.get(adapter_name, set()):
         pytest.skip(f"{adapter_name} does not advertise verb '{verb}'")
+
+
+# ---------------------------------------------------------------------------
+# M2.1 — live-mode test cleanup (FR-119 / EC-105 / data-model.md §4a).
+#
+# When a fixture switches to live mode it MUST register a finalizer that
+# wipes the remote state it created. Failures are logged at WARNING and
+# never raised — a flaky cleanup must not fail an unrelated test
+# (EC-105). The wrapper below patches the adapter's `add` method to
+# record returned ids on a per-fixture list; teardown iterates and
+# deletes.
+# ---------------------------------------------------------------------------
+
+
+def _register_live_finalizer(request, adapter, provider: str) -> None:
+    """Track ids returned by ``adapter.add`` and delete them at teardown."""
+    created: list[str] = []
+    user_ids: set[str] = set()
+    # Expose state on the adapter for the per-test purge fixture below.
+    adapter._omp_test_created = created
+    adapter._omp_test_user_ids = user_ids
+    original_add = adapter.add
+
+    def wrapped_add(*args, **kwargs):
+        memory = original_add(*args, **kwargs)
+        try:
+            mid = getattr(memory, "id", None)
+            if mid:
+                created.append(mid)
+            uid = getattr(memory, "user_id", None)
+            if uid:
+                user_ids.add(uid)
+        except Exception:  # noqa: BLE001
+            pass
+        return memory
+
+    adapter.add = wrapped_add  # type: ignore[assignment]
+
+    def cleanup():
+        # Bulk path for mem0/supermemory: list-then-delete by user_id is
+        # O(users) instead of O(memories) and avoids per-id resolution
+        # latency that compounds across pagination tests (M2.1).
+        bulk_done: set[str] = set()
+        if provider in {"mem0", "supermemory"} and user_ids:
+            for uid in user_ids:
+                try:
+                    page = adapter.list(uid, limit=100)
+                    for m in page.items:
+                        try:
+                            adapter.delete(m.id)
+                            bulk_done.add(m.id)
+                        except Exception:  # noqa: BLE001
+                            pass
+                except Exception as exc:  # noqa: BLE001
+                    _LIVE_LOG.warning(
+                        "%s bulk cleanup failed for user_id=%s: %s",
+                        provider,
+                        uid,
+                        type(exc).__name__,
+                    )
+        for mid in created:
+            if mid in bulk_done:
+                continue
+            try:
+                adapter.delete(mid)
+            except Exception as exc:  # noqa: BLE001
+                _LIVE_LOG.warning(
+                    "%s live-mode cleanup failed for id=%s: %s",
+                    provider,
+                    mid,
+                    type(exc).__name__,
+                )
+        # M2.1: letta accumulates one agent per distinct user_id; the
+        # plan limit is small (3 by default). Delete any cached agents
+        # so subsequent fixtures don't hit HTTP 402.
+        agent_cache = getattr(adapter, "_agent_cache", None)
+        client = getattr(adapter, "_client", None)
+        if provider == "letta" and agent_cache and client is not None:
+            for uid, agent_id in list(agent_cache.items()):
+                try:
+                    client.agents.delete(agent_id)
+                except Exception as exc:  # noqa: BLE001
+                    _LIVE_LOG.warning(
+                        "letta live-mode agent cleanup failed for user_id=%s id=%s: %s",
+                        uid,
+                        agent_id,
+                        type(exc).__name__,
+                    )
+            agent_cache.clear()
+
+    request.addfinalizer(cleanup)
+
+
+# ---------------------------------------------------------------------------
+# M2.1 — live-marker collection hook (FR-121 / data-model.md §6).
+#
+# Tests carrying `@pytest.mark.live` are auto-skipped when the master
+# `OMP_LIVE` switch is off. CI runs them only in a dedicated nightly job.
+# ---------------------------------------------------------------------------
+
+
+def pytest_collection_modifyitems(config, items):
+    if (os.environ.get("OMP_LIVE") or "").strip() == "1":
+        return
+    skip_live = pytest.mark.skip(
+        reason="live-mode test (set OMP_LIVE=1 to run; M2.1 / FR-121)"
+    )
+    for item in items:
+        if item.get_closest_marker("live"):
+            item.add_marker(skip_live)

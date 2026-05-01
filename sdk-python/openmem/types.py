@@ -100,6 +100,7 @@ class Memory(_OMPBase):
     supersedes: list[str] | None = None
     embedding_model: str | None = None
     updated_at: datetime | None = None
+    status: Literal["queued", "indexing", "done", "failed"] | None = None
 
 
 class MemoryPage(_OMPBase):

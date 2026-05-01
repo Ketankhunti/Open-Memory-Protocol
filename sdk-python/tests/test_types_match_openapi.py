@@ -70,3 +70,79 @@ def test_required_fields_match_openapi(schema_name):
         assert field.is_required(), (
             f"{py_name}.{prop} required by OpenAPI but optional in pydantic"
         )
+
+
+# ---------------------------------------------------------------------------
+# M2.1: Memory.status enum round-trip (FR-122)
+# ---------------------------------------------------------------------------
+
+
+def test_memory_status_enum_present_in_openapi():
+    schemas = _load_schemas()
+    mem = schemas.get("Memory", {})
+    props = mem.get("properties", {})
+    status = props.get("status")
+    assert status, "Memory.status missing from OpenAPI (FR-122)"
+    assert status.get("enum") == [
+        "queued",
+        "indexing",
+        "done",
+        "failed",
+    ], "Memory.status enum drift vs spec"
+    assert "status" not in mem.get("required", []), (
+        "Memory.status MUST be optional (additive, back-compat per Principle III)"
+    )
+
+
+def test_memory_status_round_trips_through_pydantic():
+    from openmem.types import Memory
+
+    raw = {
+        "id": "mem_x",
+        "content": "hello",
+        "user_id": "u1",
+        "created_at": "2026-04-28T00:00:00Z",
+        "status": "queued",
+    }
+    m = Memory.model_validate(raw)
+    assert m.status == "queued"
+    # Round-trip back to JSON-serialisable dict
+    dumped = m.model_dump(mode="json", exclude_none=True)
+    assert dumped["status"] == "queued"
+
+    # Absent status → None (legacy clients unaffected)
+    m2 = Memory.model_validate({**raw, "status": None})
+    assert m2.status is None
+
+
+def test_error_code_enum_includes_ingestion_timeout():
+    schemas = _load_schemas()
+    err = schemas.get("Error", {})
+    code_enum = (
+        err.get("properties", {})
+        .get("error", {})
+        .get("properties", {})
+        .get("code", {})
+        .get("enum", [])
+    )
+    assert "ingestion_timeout" in code_enum, (
+        "Error.code.ingestion_timeout missing from OpenAPI (M2.1 / FR-105 / EC-101)"
+    )
+
+
+def test_ingestion_timeout_resolves_to_provider_error():
+    from openmem.errors import OMPError, ProviderError
+
+    err = OMPError.from_response_dict(
+        {
+            "error": {
+                "code": "ingestion_timeout",
+                "message": "budget elapsed",
+                "type": "provider_error",
+                "provider": "mem0",
+            }
+        }
+    )
+    assert isinstance(err, ProviderError)
+    assert err.code == "ingestion_timeout"
+    assert err.provider == "mem0"

@@ -1,5 +1,5 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-[specs/002-m2-pool-passthrough-adapters/plan.md](../specs/002-m2-pool-passthrough-adapters/plan.md)
+[specs/003-m2-1-live/plan.md](../specs/003-m2-1-live/plan.md)
 <!-- SPECKIT END -->

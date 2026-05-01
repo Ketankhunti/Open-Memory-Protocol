@@ -239,6 +239,17 @@ components:
         embedding_model:  { type: string }
         created_at:       { type: string, format: date-time }
         updated_at:       { type: string, format: date-time }
+        status:
+          type: string
+          enum: [queued, indexing, done, failed]
+          description: |
+            Ingestion lifecycle state (M2.1, optional). Synchronous
+            providers (postgres, letta, passthrough-to-postgres) MUST
+            report `done`. Asynchronous providers (mem0, supermemory)
+            MUST report the upstream value. Absent / null means the
+            adapter does not track ingestion state — legacy clients
+            written before M2.1 are unaffected.
+          example: "done"
 
     MemoryInput:
       type: object
@@ -374,6 +385,7 @@ components:
                 - rate_limited
                 - unsupported_capability
                 - provider_error
+                - ingestion_timeout
             message:    { type: string }
             type:
               type: string

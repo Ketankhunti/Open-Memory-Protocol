@@ -37,13 +37,16 @@ def run(mem: Memory, label: str) -> bool:
     """Execute the same demo flow against any provider; return True on success."""
     print(f"\n--- {label} ---")
     try:
-        mem.add(content="user prefers pnpm over npm", user_id="demo")
-        mem.add(content="user dislikes verbose CLI output", user_id="demo")
+        m1 = mem.add(content="user prefers pnpm over npm", user_id="demo")
+        m2 = mem.add(content="user dislikes verbose CLI output", user_id="demo")
+        # M2.1 — surface async status so callers see when ingestion is queued
+        # (mem0 / supermemory may return status="queued" on add).
+        for label_, m in [("add#1", m1), ("add#2", m2)]:
+            print(f"  {label_}: id={m.id} status={m.status!r}")
         results = mem.search("package manager", "demo", limit=3)
+        print(f"  search hits: {len(results)}")
         for r in results:
-            print(f"  {r.score:.3f}  {r.memory.content}")
-        if not results:
-            print("  (no search hits)")
+            print(f"    {r.score:.3f}  {r.memory.content}")
         return True
     except UnsupportedCapabilityError as exc:
         print(f"  [skipped] verb unsupported: {exc}")

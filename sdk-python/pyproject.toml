@@ -30,9 +30,9 @@ dependencies = [
 
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
-mem0 = ["mem0ai>=0.1"]
+mem0 = ["mem0ai>=2.0,<3"]
 supermemory = []
-letta = ["letta-client>=0.1"]
+letta = ["letta-client>=1.10"]
 dev = [
     "pytest>=7",
     "pytest-cov",
@@ -56,3 +56,6 @@ packages = ["openmem"]
 testpaths = ["tests"]
 addopts = "--cov=openmem --cov-report=term-missing --cov-fail-under=85"
 timeout = 30
+markers = [
+    "live: tests that hit real provider APIs (auto-skipped unless OMP_LIVE=1; budget up to 90s)",
+]

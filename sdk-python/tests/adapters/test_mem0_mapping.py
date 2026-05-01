@@ -71,18 +71,37 @@ def test_unsupported_audit_raises_unsupported_capability() -> None:
     "exc_name, expected",
     [
         ("AuthenticationError", UnauthorizedError),
-        ("NotFoundError", NotFoundError),
         ("ValidationError", InvalidRequestError),
         ("RateLimitError", RateLimitedError),
         ("RuntimeError", ProviderError),
     ],
 )
 def test_provider_errors_translate(exc_name: str, expected: type) -> None:
+    """Non-NotFound errors propagate through the get() poll immediately.
+
+    M2.1 changed `get()` from single-shot to bounded-poll, so NotFound is
+    no longer raised — it is interpreted as `still-ingesting` and the poll
+    continues until budget exhaustion (covered in
+    `test_get_not_found_eventually_raises_ingestion_timeout`).
+    """
     adapter, client = _make_adapter()
     raised = type(exc_name, (Exception,), {})("boom")
     client.get.side_effect = raised
     with pytest.raises(expected):
         adapter.get("mem_x")
+
+
+def test_get_not_found_eventually_raises_ingestion_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """M2.1: persistent 404 → ProviderError(code='ingestion_timeout')."""
+    monkeypatch.setenv("OMP_INGEST_TIMEOUT", "1")
+    adapter, client = _make_adapter()
+    client.get.side_effect = NotFoundError("not yet", provider="mem0")
+    with pytest.raises(ProviderError) as excinfo:
+        adapter.get("evt_pending")
+    assert excinfo.value.code == "ingestion_timeout"
+    assert excinfo.value.provider == "mem0"
 
 
 def test_pagination_cursor_round_trips() -> None:

@@ -88,6 +88,23 @@ class BaseAdapter(ABC):
     def capabilities(self) -> Capabilities:
         """Return this provider's capability matrix."""
 
+    def wait_for_ingest(
+        self,
+        ids: list[str],
+        user_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> None:
+        """Wait until every id in ``ids`` is readable upstream.
+
+        Default implementation is a no-op (synchronous-ingestion adapters
+        are read-after-write by construction). Async-ingestion adapters
+        (mem0, supermemory) override this to poll until each id has
+        materialized, raising ``ProviderError(code='ingestion_timeout')``
+        if the budget elapses with any id still pending.
+        """
+        return None
+
     def audit(
         self,
         user_id: str,

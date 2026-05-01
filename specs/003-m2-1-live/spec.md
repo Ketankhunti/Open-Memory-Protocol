@@ -42,7 +42,7 @@ A user installs `openmem[mem0]`, sets `MEM0_API_KEY`, runs `python examples/02_s
 
 **Why this priority**: Mem0 is the most popular external memory provider in the OMP target audience, and the M2 commitment explicitly lists it. Until mem0 works against the real API, M2 has no end-to-end story.
 
-**Independent Test**: With a valid `MEM0_API_KEY` set: `OMP_LIVE=1 pytest "sdk-python/tests/test_contract_lifecycle.py::test_add_then_search_finds_original_content[mem0]"` passes (this exercises the async-ingestion + LLM-rewrite path). The example demo prints results from `mem0` alongside `postgres`.
+**Independent Test**: With a valid `MEM0_API_KEY` set: `OMP_LIVE=1 pytest "sdk-python/tests/test_contract_search.py::test_add_then_search_finds_original_content[mem0]"` passes (this exercises the async-ingestion + LLM-rewrite path). The example demo prints results from `mem0` alongside `postgres`.
 
 **Acceptance Scenarios**:
 
@@ -122,7 +122,7 @@ A contributor runs `pytest sdk-python/tests` on their laptop with no API keys se
 - **FR-101**: `Mem0Adapter` MUST construct `MemoryClient(api_key=..., host=...)` against `mem0ai>=2.0`. Imports MUST remain lazy (M2 invariant).
 - **FR-102**: `add()` MUST persist via `client.add(messages=[{"role":"user","content":...}], user_id=...)`, capture the returned `event_id`, and return a `Memory` with `id=event_id_or_provider_id`, `status="queued"`, `content=<original>`, `x-mem0={"event_id": ..., "original_content": ...}`. (See clarified async contract.)
 - **FR-103**: `list()` MUST call `client.get_all(filters={"user_id": ...}, version="v2", page=N, limit=L)` and parse `{"results": [...], "next": ..., "previous": ..., "count": ...}`. The OMP `next_cursor` MUST opaquely encode `page+1` when `next` is non-null.
-- **FR-104**: `search()` MUST call `client.search(query=..., filters={"user_id": ...}, version="v2", limit=...)`, parse `{"results": [...]}`, and emit OMP `SearchResult` with `score=item["score"]`.
+- **FR-104**: `search()` MUST call `client.search(query=..., filters={"user_id": ...}, version="v2", limit=...)`, parse `{"results": [...]}`, and emit OMP `SearchResult` with `score=item["score"]`. `user_id` is REQUIRED — if absent, the adapter MUST raise `InvalidRequestError(message="user_id is required")` BEFORE issuing any upstream call (defence in depth: prevents unscoped tenant-leak queries).
 - **FR-105**: `get(id)` MUST poll `client.get(memory_id=id)` for up to `OMP_INGEST_TIMEOUT` seconds (default 60), backing off, returning the materialised `Memory` once present, or raising `ProviderError(code="ingestion_timeout")`.
 
 #### Supermemory live integration (US2)
@@ -130,7 +130,7 @@ A contributor runs `pytest sdk-python/tests` on their laptop with no API keys se
 - **FR-106**: `SupermemoryAdapter` default `base_url` MUST be `https://api.supermemory.ai/v3` (overridable via constructor or `SUPERMEMORY_BASE_URL` env var).
 - **FR-107**: `add()` MUST `POST /memories` with body `{"content": ..., "metadata": {"user_id": ..., "scope": ..., "tags": ..., "x-...": ...}}` and parse `{"id", "status"}` into a queued `Memory`.
 - **FR-108**: `list()` MUST `POST /memories/list` with body `{"limit", "page", "filters": {"user_id": ...}}` and parse the camelCase document shape (`memories[].createdAt`, `memories[].metadata`, `pagination.currentPage`, `pagination.limit`) into `MemoryPage`. The OMP `next_cursor` MUST opaquely encode `currentPage+1` when more pages exist.
-- **FR-109**: `search()` MUST `POST /search` with body `{"q", "limit"}` and parse the chunk-shaped response into OMP `SearchResult` (one `SearchResult` per `documentId`, score = best chunk score).
+- **FR-109**: `search()` MUST `POST /search` with body `{"q", "limit"}` and parse the chunk-shaped response into OMP `SearchResult` (one `SearchResult` per `documentId`, score = best chunk score). `user_id` is REQUIRED — if absent, the adapter MUST raise `InvalidRequestError(message="user_id is required")` BEFORE issuing any HTTP call (defence in depth: prevents cross-tenant search results).
 - **FR-110**: `get(id)` MUST `GET /memories/{id}` and parse the camelCase doc; provider-assigned `userId` MUST be ignored — `Memory.user_id` is read from `metadata.user_id`.
 - **FR-111**: `update` MUST NOT be advertised in `capabilities().verbs` (carry-over from M2; the live API still has no public update endpoint).
 
@@ -138,14 +138,14 @@ A contributor runs `pytest sdk-python/tests` on their laptop with no API keys se
 
 - **FR-112**: `LettaAdapter` MUST construct `Letta(api_key=api_key, base_url=...)` against `letta-client>=1.10`.
 - **FR-113**: `add()` MUST call `client.agents.passages.create(agent_id, text=content)`, treat the returned value as a `list[Passage]`, take the first passage as the canonical OMP id, and stash *all* passage ids under `x-letta.passage_ids`.
-- **FR-114**: `delete(id)` MUST delete every passage id recorded under the memory's `x-letta.passage_ids`, not just the canonical first one.
-- **FR-115**: `search()` MUST call `client.agents.passages.search(agent_id, query=query, top_k=limit, tags=tags)` and parse `PassageSearchResponse(count, results=[Result(id, content, timestamp, tags)])`.
+- **FR-114**: `delete(id)` MUST delete every passage id recorded under the memory's `x-letta.passage_ids`, not just the canonical first one. On partial failure (some passage deletes succeed, others raise upstream), the adapter MUST return success once at least one passage was removed; per-passage failures MUST be logged at WARNING with the passage id and the upstream exception.
+- **FR-115**: `search()` MUST call `client.agents.passages.search(agent_id, query=query, top_k=limit)` (note `top_k=`, NOT `limit=`) and parse `PassageSearchResponse(count, results=[Result(id, content, timestamp, tags)])`. Tag-based filtering is OUT OF SCOPE for M2.1 — the OMP `search` signature does not accept `tags`; a future spec MAY add it via `**kwargs` passthrough.
 - **FR-116**: `capabilities().verbs` for Letta MUST exclude `get` and `update`. Calling either on the adapter MUST raise `UnsupportedCapabilityError` *before* any network call (FR-009 carry-over).
 - **FR-117**: The `_agent_for(user_id)` cache MUST persist across the adapter's lifetime; first call creates the agent, subsequent calls reuse the cached id. On agent-not-found errors the cache entry MUST be invalidated.
 
 #### Test infrastructure (US4)
 
-- **FR-118**: `pytest` runs MUST default to mock mode (M2 behaviour). Live mode is opted into by setting `OMP_LIVE=1` *and* the matching `*_API_KEY`.
+- **FR-118**: `pytest` runs MUST default to mock mode (M2 behaviour). Live mode is opted into by setting `OMP_LIVE=1` *and* the matching `*_API_KEY`. Both values MUST be `.strip()`-ed; `OMP_LIVE` MUST equal exactly `"1"` (not `"true"`, `"yes"`, etc.); `*_API_KEY` MUST be non-empty after stripping. Whitespace-only or malformed values MUST keep the provider in mock mode. API-key values MUST NEVER be logged in any form (no prefixes, no lengths, no hashes that could enable credential confirmation).
 - **FR-119**: Each live-mode fixture MUST register a `finalizer` that deletes every memory it created and (for Letta) every agent it spawned. Cleanup failures MUST be logged but MUST NOT fail the test.
 - **FR-120**: A new contract test `test_add_then_search_finds_original_content` MUST be added; it asserts that searching for the original `add()` content returns the memory regardless of provider-side rewrites. This test runs for every advertised-search adapter.
 - **FR-121**: A pytest marker `@pytest.mark.live` MUST be defined; live-only tests (e.g. ingestion-timeout coverage) MUST use it. CI runs the marker only in a nightly job, never on PRs.

@@ -124,6 +124,9 @@ _CODE_TO_CLASS: dict[str, type[OMPError]] = {
     "rate_limited": RateLimitedError,
     "unsupported_capability": UnsupportedCapabilityError,
     "provider_error": ProviderError,
+    # M2.1: bounded-poll exhaustion for async-ingestion providers (mem0,
+    # supermemory). Reuses ProviderError; the `code` discriminates.
+    "ingestion_timeout": ProviderError,
 }
 
 
