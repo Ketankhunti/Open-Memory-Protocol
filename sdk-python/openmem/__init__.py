@@ -40,11 +40,12 @@ from .types import (
     SearchResult,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"
 
 __all__ = [
     "__version__",
     "Memory",
+    "AsyncMemory",
     "MemoryRecord",
     "MemoryInput",
     "MemoryUpdate",
@@ -66,3 +67,38 @@ __all__ = [
     "ProviderError",
     "UnsupportedProviderError",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Lazy `AsyncMemory` import (T019 / FR-026 / contracts §C-EXT-1..3).
+#
+# `from openmem import AsyncMemory` works iff the `[async]` extra is
+# installed (asyncpg + httpx). Without it, the import raises a clear
+# `ImportError` whose message contains the exact remediation string.
+# Importing `openmem` itself MUST NOT trigger any async dependency
+# resolution (C-EXT-3) — that is why this lives in `__getattr__`.
+# ---------------------------------------------------------------------------
+
+
+def __getattr__(name: str):  # noqa: D401 - module-level hook
+    if name == "AsyncMemory":
+        # FR-026 / C-EXT-1..3: the user must learn *now* that the
+        # `[async]` extras are missing — not deep inside a backend
+        # call. Eagerly probe `asyncpg` (the only async-only runtime
+        # dep; httpx is a base requirement) before exposing the class.
+        try:
+            import asyncpg  # noqa: F401
+        except ImportError as exc:
+            raise ImportError(
+                "openmem.AsyncMemory requires the async extras. "
+                "Install with: pip install 'openmem[async]'"
+            ) from exc
+        try:
+            from .async_memory import AsyncMemory as _AsyncMemory
+        except ImportError as exc:  # pragma: no cover - import-time path
+            raise ImportError(
+                "openmem.AsyncMemory requires the async extras. "
+                "Install with: pip install 'openmem[async]'"
+            ) from exc
+        return _AsyncMemory
+    raise AttributeError(f"module 'openmem' has no attribute {name!r}")

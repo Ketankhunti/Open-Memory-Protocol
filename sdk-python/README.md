@@ -9,7 +9,37 @@ Protocol](../spec/OMP-0.1.md) v0.1.
 pip install -e .                 # core
 pip install -e ".[dev]"          # core + tests
 pip install -e ".[openai]"       # core + OpenAIEmbedder
+pip install -e ".[async]"        # core + AsyncMemory (asyncpg)
 ```
+
+## Async usage
+
+`openmem.AsyncMemory` is the async/await-native mirror of
+`openmem.Memory`. Method names, parameters, and error semantics match
+the sync class — the only difference is that every verb is awaitable.
+Postgres + passthrough run on native async clients (asyncpg / httpx);
+mem0, supermemory, and letta are wrapped with a per-instance
+`ThreadPoolExecutor`.
+
+```python
+import asyncio
+from openmem import AsyncMemory   # requires: pip install 'openmem[async]'
+
+async def main():
+    async with AsyncMemory(provider="postgres",
+                           url="postgresql://postgres:postgres@localhost:5432/postgres") as mem:
+        rec = await mem.add(content="user prefers dark mode", user_id="u1")
+        hits = await mem.search("dark mode", user_id="u1")
+        print(hits[0].memory.content)
+
+asyncio.run(main())
+```
+
+Cancellation propagates within 50 ms on the native tier (postgres,
+passthrough); the threadwrap tier returns immediately to the awaiter
+while the worker thread completes in the background. See
+[../specs/005-async-fastapi/quickstart.md](../specs/005-async-fastapi/quickstart.md)
+for the full contract.
 
 ## Environment variables
 

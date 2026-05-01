@@ -46,6 +46,7 @@ from ..types import (
     _Citation,
 )
 from . import _cursor, _ingest
+from ._validation import require_user_id
 from .base import BaseAdapter
 
 
@@ -645,8 +646,7 @@ class Mem0Adapter(BaseAdapter):
     ) -> list[SearchResult]:
         # Pre-flight: empty user_id MUST raise BEFORE any upstream call to
         # prevent accidental cross-user broadening (FR-104 / data-model.md §3).
-        if not user_id or not str(user_id).strip():
-            raise InvalidRequestError("user_id is required", provider="mem0")
+        require_user_id(user_id, provider="mem0")
         try:
             # mem0 v2 requires `filters={"user_id": ...}` — passing
             # `user_id=` as a top-level kwarg is rejected since 2.x.
