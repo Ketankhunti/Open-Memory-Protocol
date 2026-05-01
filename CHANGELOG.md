@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] — Unreleased (M3.1 — Eval Kit)
+
+### Added
+
+- **`openmem-eval` CLI** — stdlib-only benchmark harness that runs the
+  bundled 50-fact / 20-query dataset against any configured provider
+  (`postgres`, `mem0`, `supermemory`, `letta`, `passthrough`) and emits a
+  Markdown report + JSONL trace.
+  - Metrics: `recall@1`, `recall@5`, `MRR`, ingest/search latency
+    p50/p95/p99, error count, estimated cost USD.
+  - Cost estimation per provider via `openmem.eval.cost`; refuses to
+    proceed live above `--cost-threshold` (default $1.00) without
+    `--yes` or a TTY.
+  - **Refuses to run in CI** (FR-014); checks `CI`, `GITHUB_ACTIONS`,
+    `BUILDKITE`, `TF_BUILD`, `TEAMCITY_VERSION`, `CIRCLECI`, `JENKINS_URL`.
+  - **Privacy-by-default trace** — all payloads SHA-256 hashed
+    (12-hex prefix) so traces are safe to share.
+  - **Post-run cleanup** via `--cleanup` — lists by per-run user_id
+    (`eval-{run_id}`) and deletes every memory created.
+  - **Dual-stamped facts** (R11) — content prefix `[fact_id=…] ` plus
+    tag `fact:…` so adapters that rewrite content (mem0 LLM rewrite)
+    still recover the gold id at scoring time.
+  - **Env-aware factory** — reads `OMP_POSTGRES_URL` (or `PG_URL`),
+    `MEM0_API_KEY`, `SUPERMEMORY_API_KEY`, `LETTA_API_KEY`.
+- **`Memory.wait_for_ingest(ids, user_id, *, timeout)`** pass-through to
+  the active adapter's bounded-poll helper. No-op default for sync
+  adapters (postgres). Lets the eval kit hold the wall-clock honest for
+  async-ingestion providers.
+- **Bundled default dataset** — 50 facts, 20 queries, SHA-256
+  `dataset_hash=5c2a0d95915a` recorded in every report so two runs of
+  the same dataset are directly comparable.
+- **Sample artifacts** committed under `docs/eval/` so reviewers can see
+  the kit's output without running it. Includes a real `pgvector`
+  postgres run: `recall@5 = 0.80, MRR = 0.78, search p95 = 6.4 ms`.
+
+### Changed
+
+- `pyproject.toml`: new console script `openmem-eval = "openmem.eval.cli:main"`;
+  `openmem.eval.datasets` force-included in the wheel.
+
+### Security
+
+- Eval trace payloads are hashed, never written verbatim.
+- Cost gate prevents accidental large spend against paid providers
+  (mem0 / supermemory / letta) — non-TTY non-`--yes` invocations exit 3
+  if the estimate exceeds the threshold.
+
 ## [0.2.1] — Unreleased (M2.1 — Live-API bridges)
 
 ### Added
