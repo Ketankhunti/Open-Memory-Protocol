@@ -44,6 +44,7 @@ dev = [
 
 [project.scripts]
 omp-validate-spec = "openmem._scripts:validate_spec"
+openmem-eval = "openmem.eval.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/openmem/omp"
@@ -51,6 +52,9 @@ Specification = "https://github.com/openmem/omp/tree/main/spec"
 
 [tool.hatch.build.targets.wheel]
 packages = ["openmem"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"openmem/eval/datasets" = "openmem/eval/datasets"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -44,6 +44,10 @@ print(ctx.text)
 - [SDK README](sdk-python/README.md)
 - [CHANGELOG](CHANGELOG.md)
 
+## Tooling
+
+- `openmem-eval` — manual benchmark harness comparing recall, MRR, and latency across configured providers. **Never runs in CI.** Default invocation is a dry-run that makes zero network calls. See [specs/004-eval-kit/quickstart.md](specs/004-eval-kit/quickstart.md).
+
 ## License
 
 TBD.

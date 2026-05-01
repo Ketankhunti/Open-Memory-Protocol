@@ -254,6 +254,26 @@ def test_facade_capabilities_caches_result() -> None:
     assert len(capability_calls) == 1
 
 
+def test_facade_wait_for_ingest_is_noop_when_adapter_lacks_hook() -> None:
+    """T015a — adapters using BaseAdapter's default no-op succeed silently."""
+    mem, _ = _make_memory()
+    mem.wait_for_ingest(["m-1", "m-2"], "u1")
+    mem.wait_for_ingest(["m-1"], "u1", timeout=5.0)
+
+
+def test_facade_wait_for_ingest_calls_adapter_hook_when_overridden() -> None:
+    """T015a — pass-through invokes adapter.wait_for_ingest with all args."""
+    mem, stub = _make_memory()
+    captured: list[tuple] = []
+
+    def _hook(ids, user_id, *, timeout=None):
+        captured.append((tuple(ids), user_id, timeout))
+
+    stub.wait_for_ingest = _hook  # type: ignore[attr-defined]
+    mem.wait_for_ingest(["m-1", "m-2"], "u1", timeout=12.5)
+    assert captured == [(("m-1", "m-2"), "u1", 12.5)]
+
+
 # ---------------------------------------------------------------------------
 # _resolve_adapter — provider dispatch and error paths
 # ---------------------------------------------------------------------------
