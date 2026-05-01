@@ -48,6 +48,7 @@ from ..types import (
     SearchResult,
     _Citation,
 )
+from ._validation import require_user_id
 from .base import BaseAdapter
 
 _LOG = logging.getLogger(__name__)
@@ -332,8 +333,7 @@ class LettaAdapter(BaseAdapter):
 
     def add(self, memory: MemoryInput) -> Memory:
         self._check_verb("add")
-        if not memory.user_id or not str(memory.user_id).strip():
-            raise InvalidRequestError("user_id is required", provider="letta")
+        require_user_id(memory.user_id, provider="letta")
         agent_id = self._agent_for(memory.user_id)
         # M2.1: live letta `passages.create` only persists `text=` and
         # `tags=` — there is NO `metadata=` parameter (verified against
@@ -436,8 +436,7 @@ class LettaAdapter(BaseAdapter):
         cursor: str | None = None,
     ) -> MemoryPage:
         self._check_verb("list")
-        if not user_id or not str(user_id).strip():
-            raise InvalidRequestError("user_id is required", provider="letta")
+        require_user_id(user_id, provider="letta")
         agent_id = self._agent_for(user_id)
         # M2.1: Letta paginates by `after=<passage_id>` (NOT by page number).
         # Decode the OMP cursor into a letta-native passage id so the upstream
@@ -496,8 +495,7 @@ class LettaAdapter(BaseAdapter):
         min_score: float | None = None,
     ) -> list[SearchResult]:
         self._check_verb("search")
-        if not user_id or not str(user_id).strip():
-            raise InvalidRequestError("user_id is required", provider="letta")
+        require_user_id(user_id, provider="letta")
         agent_id = self._agent_for(user_id)
         try:
             # M2.1: top_k=limit (NOT limit=). Tag filtering deferred (FR-115).

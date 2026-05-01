@@ -60,6 +60,7 @@ from ..types import (
 from . import _cursor, _ingest
 from ._http import follow_one_redirect, make_client
 from .base import BaseAdapter
+from ._validation import require_user_id
 
 DEFAULT_BASE_URL = "https://api.supermemory.ai/v3"
 
@@ -459,8 +460,7 @@ class SupermemoryAdapter(BaseAdapter):
     ) -> list[SearchResult]:
         self._check_verb("search")
         # Pre-flight: empty user_id MUST raise BEFORE any upstream call.
-        if not user_id or not str(user_id).strip():
-            raise InvalidRequestError("user_id is required", provider="supermemory")
+        require_user_id(user_id, provider="supermemory")
         body: dict[str, Any] = {
             "q": query,
             "limit": limit,

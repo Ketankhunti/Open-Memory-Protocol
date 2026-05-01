@@ -47,6 +47,7 @@ print(ctx.text)
 ## Tooling
 
 - `openmem-eval` — manual benchmark harness comparing recall, MRR, and latency across configured providers. **Never runs in CI.** Default invocation is a dry-run that makes zero network calls. See [specs/004-eval-kit/quickstart.md](specs/004-eval-kit/quickstart.md) for usage and [docs/eval/](docs/eval/README.md) for a sample report and trace from a real postgres run.
+- `openmem.AsyncMemory` — async/await-native facade mirroring `openmem.Memory`. Postgres + passthrough adapters use native async clients (asyncpg, httpx); mem0/supermemory/letta are wrapped with a per-instance thread pool. Cancellation propagates within 50 ms on the native tier. Install with `pip install 'openmem[async]'` and see [specs/005-async-fastapi/quickstart.md](specs/005-async-fastapi/quickstart.md) §1–§4.
 
 ## License
 

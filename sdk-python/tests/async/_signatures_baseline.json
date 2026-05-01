@@ -1,0 +1,354 @@
+{
+  "__init__": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "provider",
+      "POSITIONAL_OR_KEYWORD",
+      "'postgres'",
+      "str"
+    ],
+    [
+      "config",
+      "VAR_KEYWORD",
+      "<no-default>",
+      "Any"
+    ]
+  ],
+  "add": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "content",
+      "KEYWORD_ONLY",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "user_id",
+      "KEYWORD_ONLY",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "scope",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "tags",
+      "KEYWORD_ONLY",
+      "None",
+      "list[str] | None"
+    ],
+    [
+      "source",
+      "KEYWORD_ONLY",
+      "None",
+      "MemorySource | dict[str, Any] | None"
+    ],
+    [
+      "confidence",
+      "KEYWORD_ONLY",
+      "None",
+      "float | None"
+    ],
+    [
+      "valid_from",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "valid_to",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "supersedes",
+      "KEYWORD_ONLY",
+      "None",
+      "list[str] | None"
+    ],
+    [
+      "extensions",
+      "VAR_KEYWORD",
+      "<no-default>",
+      "Any"
+    ]
+  ],
+  "audit": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "user_id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "app",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "since",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "limit",
+      "KEYWORD_ONLY",
+      "100",
+      "int"
+    ]
+  ],
+  "capabilities": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ]
+  ],
+  "context": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "query",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "user_id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "scope",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "token_budget",
+      "KEYWORD_ONLY",
+      "500",
+      "int"
+    ]
+  ],
+  "delete": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ]
+  ],
+  "get": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ]
+  ],
+  "list": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "user_id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "scope",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "tag",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "since",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "until",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "limit",
+      "KEYWORD_ONLY",
+      "50",
+      "int"
+    ],
+    [
+      "cursor",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ]
+  ],
+  "search": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "query",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "user_id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "scope",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "limit",
+      "KEYWORD_ONLY",
+      "10",
+      "int"
+    ],
+    [
+      "min_score",
+      "KEYWORD_ONLY",
+      "None",
+      "float | None"
+    ]
+  ],
+  "update": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "content",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "scope",
+      "KEYWORD_ONLY",
+      "None",
+      "str | None"
+    ],
+    [
+      "tags",
+      "KEYWORD_ONLY",
+      "None",
+      "list[str] | None"
+    ],
+    [
+      "confidence",
+      "KEYWORD_ONLY",
+      "None",
+      "float | None"
+    ],
+    [
+      "valid_to",
+      "KEYWORD_ONLY",
+      "None",
+      "datetime | None"
+    ],
+    [
+      "supersedes",
+      "KEYWORD_ONLY",
+      "None",
+      "list[str] | None"
+    ]
+  ],
+  "wait_for_ingest": [
+    [
+      "self",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "<no-annotation>"
+    ],
+    [
+      "ids",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "list[str]"
+    ],
+    [
+      "user_id",
+      "POSITIONAL_OR_KEYWORD",
+      "<no-default>",
+      "str"
+    ],
+    [
+      "timeout",
+      "KEYWORD_ONLY",
+      "None",
+      "float | None"
+    ]
+  ]
+}

@@ -19,7 +19,6 @@ Key behaviors:
 
 from __future__ import annotations
 
-import base64
 import json
 from datetime import datetime, timezone
 from typing import Any
@@ -28,7 +27,6 @@ import psycopg
 import psycopg_pool
 from psycopg.rows import dict_row
 from psycopg.types.json import Json
-from ulid import ULID
 
 from ..errors import InvalidRequestError, NotFoundError, ProviderError
 from ..types import (
@@ -44,59 +42,31 @@ from ..types import (
     SearchResult,
     _Citation,
 )
+from ._postgres_sql import (
+    CREATE_EXTENSION_SQL,
+    DELETE_MEMORY_SQL,
+    GET_MEMORY_SQL,
+    INDEX_CREATED_AT_SQL,
+    INDEX_TAGS_SQL,
+    INDEX_USER_SCOPE_SQL,
+    INSERT_MEMORY_SQL,
+    STD_FIELDS as _STD_FIELDS,
+    decode_cursor as _decode_cursor,
+    encode_cursor as _encode_cursor,
+    make_create_table_sql,
+    new_id as _new_id,
+    scope_glob_to_sql_like as _scope_glob_to_sql_like,
+    split_extensions as _split_extensions,
+    vector_literal as _vector_literal,
+)
 from .base import BaseAdapter
 from .embedder import Embedder, FakeEmbedder
 
 # ---------------------------------------------------------------------------
-# Constants
+# Constants (re-exported for backward compatibility)
 # ---------------------------------------------------------------------------
 
-_STD_FIELDS = {
-    "id",
-    "content",
-    "user_id",
-    "scope",
-    "tags",
-    "source",
-    "confidence",
-    "valid_from",
-    "valid_to",
-    "supersedes",
-    "embedding_model",
-    "created_at",
-    "updated_at",
-}
-
-
-def _new_id() -> str:
-    return f"mem_{ULID()}"
-
-
-def _vector_literal(vec: list[float]) -> str:
-    """Render a Python list as a pgvector literal."""
-    return "[" + ",".join(repr(float(x)) for x in vec) + "]"
-
-
-def _scope_glob_to_sql_like(scope: str | None) -> str | None:
-    if scope is None:
-        return None
-    return scope.replace("*", "%")
-
-
-def _encode_cursor(created_at: datetime, id_: str) -> str:
-    raw = f"{created_at.isoformat()}|{id_}".encode()
-    return base64.urlsafe_b64encode(raw).decode("ascii")
-
-
-def _decode_cursor(cursor: str) -> tuple[datetime, str]:
-    raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode()
-    ts, id_ = raw.split("|", 1)
-    return datetime.fromisoformat(ts), id_
-
-
-def _split_extensions(extra: dict[str, Any]) -> dict[str, Any]:
-    """Extract ``x-<provider>`` keys from a free-form dict."""
-    return {k: v for k, v in extra.items() if k.startswith("x-")}
+__all__ = ["PostgresAdapter"]
 
 
 # ---------------------------------------------------------------------------
@@ -147,40 +117,11 @@ class PostgresAdapter(BaseAdapter):
         try:
             with self._pool.connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                    cur.execute(
-                        f"""
-                        CREATE TABLE IF NOT EXISTS memories (
-                            id              TEXT PRIMARY KEY,
-                            content         TEXT NOT NULL,
-                            user_id         TEXT NOT NULL,
-                            scope           TEXT,
-                            tags            TEXT[],
-                            source          JSONB,
-                            confidence      REAL,
-                            valid_from      TIMESTAMPTZ,
-                            valid_to        TIMESTAMPTZ,
-                            supersedes      TEXT[],
-                            embedding_model TEXT,
-                            embedding       VECTOR({self._dim}),
-                            extensions      JSONB,
-                            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                            updated_at      TIMESTAMPTZ
-                        );
-                        """
-                    )
-                    cur.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_memories_user_scope "
-                        "ON memories(user_id, scope);"
-                    )
-                    cur.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_memories_tags "
-                        "ON memories USING GIN(tags);"
-                    )
-                    cur.execute(
-                        "CREATE INDEX IF NOT EXISTS idx_memories_created_at "
-                        "ON memories(created_at DESC, id DESC);"
-                    )
+                    cur.execute(CREATE_EXTENSION_SQL)
+                    cur.execute(make_create_table_sql(self._dim))
+                    cur.execute(INDEX_USER_SCOPE_SQL)
+                    cur.execute(INDEX_TAGS_SQL)
+                    cur.execute(INDEX_CREATED_AT_SQL)
                 conn.commit()
         except psycopg_pool.PoolTimeout as e:
             raise ProviderError(
@@ -234,18 +175,7 @@ class PostgresAdapter(BaseAdapter):
             with self._pool.connection() as conn:
                 with conn.cursor(row_factory=dict_row) as cur:
                     cur.execute(
-                        """
-                        INSERT INTO memories (
-                            id, content, user_id, scope, tags, source, confidence,
-                            valid_from, valid_to, supersedes, embedding_model,
-                            embedding, extensions, created_at
-                        ) VALUES (
-                            %s, %s, %s, %s, %s, %s, %s,
-                            %s, %s, %s, %s,
-                            %s::vector, %s, %s
-                        )
-                        RETURNING *;
-                        """,
+                        INSERT_MEMORY_SQL,
                         (
                             new_id,
                             memory.content,
@@ -284,7 +214,7 @@ class PostgresAdapter(BaseAdapter):
         try:
             with self._pool.connection() as conn:
                 with conn.cursor(row_factory=dict_row) as cur:
-                    cur.execute("SELECT * FROM memories WHERE id = %s;", (id,))
+                    cur.execute(GET_MEMORY_SQL, (id,))
                     row = cur.fetchone()
             if row is None:
                 raise NotFoundError(
@@ -370,7 +300,7 @@ class PostgresAdapter(BaseAdapter):
         try:
             with self._pool.connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute("DELETE FROM memories WHERE id = %s;", (id,))
+                    cur.execute(DELETE_MEMORY_SQL, (id,))
                     affected = cur.rowcount
                 conn.commit()
             if affected == 0:

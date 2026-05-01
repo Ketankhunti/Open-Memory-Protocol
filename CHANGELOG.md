@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] — Unreleased (M3.2 PR-A — `AsyncMemory`)
+
+### Added
+
+- **`openmem.AsyncMemory`** — async/await-native facade mirroring
+  `openmem.Memory`. Constructor performs zero blocking I/O; pools and
+  HTTP clients are built lazily on first verb call (data-model
+  AM-INV-3 / C-LIFE-1). Routes to native or threadwrap backends per
+  provider:
+  - `postgres` → `AsyncPostgresAdapter` on top of `asyncpg` + pgvector
+    (native cancel; SQL placeholders translated `%s` → `$1` from the
+    shared `_postgres_sql` module so sync/async share one source of
+    truth).
+  - `passthrough` → `AsyncPassthroughAdapter` on top of
+    `httpx.AsyncClient` (native cancel; identical timeout / retry
+    headers to sync).
+  - `mem0` / `supermemory` / `letta` → `AsyncThreadwrapAdapter` over a
+    per-instance `ThreadPoolExecutor` (best-effort cancel; orphan
+    completion logged at DEBUG).
+- **Three-tier cancellation contract** (`contracts/async-memory.md` §3):
+  - C-CAN-1: native awaiter receives `CancelledError` ≤ 50 ms.
+  - C-CAN-2: native pool/socket released ≤ 500 ms post-cancel.
+  - C-CAN-3: Postgres server-side query aborted ≤ 1 s.
+  - C-CAN-4: threadwrap awaiter cancels immediately; worker thread
+    finishes in the background.
+  - C-CAN-5: subsequent verbs on the same `AsyncMemory` succeed after
+    cancellation (no pool corruption).
+- **`[async]` install extra** (`asyncpg>=0.29`, `httpx>=0.27`).
+  `from openmem import AsyncMemory` raises a clear `ImportError`
+  containing `pip install 'openmem[async]'` when the extra is missing
+  (FR-026 / C-EXT-1..3). Importing bare `openmem` triggers no async
+  dependency resolution.
+- **Cross-loop guard** — `AsyncMemory` captures the running loop id on
+  the first verb call and raises `RuntimeError` *before* any backend
+  call if a later verb is awaited on a different loop (C-LOOP-1).
+- **Sync `Memory` signature regression test**
+  (`tests/async/test_memory_signatures.py`) commits a JSON snapshot of
+  every public verb's signature; any drift fails the gate (SC-008 /
+  FR-011).
+
+### Changed
+
+- `sdk-python/pyproject.toml`: bumped `version` to `0.4.0`; declared
+  the new `[async]` extra; `[server]` extra now depends on
+  `openmem[async]`.
+
+### Preserved
+
+- The sync `openmem.Memory` class is **byte-identical** — no public
+  signature, default value, or behavior changed. The full sync test
+  suite still passes (365 passed / 21 skipped at branch-off baseline).
+
 ## [0.2.1] — Unreleased (M2.1 — Live-API bridges)
 
 ### Added
