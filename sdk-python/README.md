@@ -41,6 +41,21 @@ while the worker thread completes in the background. See
 [../specs/005-async-fastapi/quickstart.md](../specs/005-async-fastapi/quickstart.md)
 for the full contract.
 
+## HTTP server (`omp-server`)
+
+```sh
+pip install 'openmem[server]'
+omp-server --provider postgres --url postgresql://user:pass@host:5432/db
+# omp-server: serving postgres at http://127.0.0.1:8080
+```
+
+Routes mirror `spec/omp-0.1.openapi.yaml` 1:1 (`POST/GET/PATCH/DELETE
+/memories[/{id}]`, `GET /memories/search`, `POST /context`, `GET /audit`,
+`GET /capabilities`, `GET /healthz`). The 11-row error envelope, 1 MiB
+default body limit, and default-deny CORS are documented in
+[../specs/005-async-fastapi/contracts/http-server.md](../specs/005-async-fastapi/contracts/http-server.md).
+Trusted-network deployment only — auth is deferred.
+
 ## Environment variables
 
 | Var              | Purpose                                                   |

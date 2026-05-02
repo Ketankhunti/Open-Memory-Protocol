@@ -48,6 +48,23 @@ print(ctx.text)
 
 - `openmem-eval` — manual benchmark harness comparing recall, MRR, and latency across configured providers. **Never runs in CI.** Default invocation is a dry-run that makes zero network calls. See [specs/004-eval-kit/quickstart.md](specs/004-eval-kit/quickstart.md) for usage and [docs/eval/](docs/eval/README.md) for a sample report and trace from a real postgres run.
 - `openmem.AsyncMemory` — async/await-native facade mirroring `openmem.Memory`. Postgres + passthrough adapters use native async clients (asyncpg, httpx); mem0/supermemory/letta are wrapped with a per-instance thread pool. Cancellation propagates within 50 ms on the native tier. Install with `pip install 'openmem[async]'` and see [specs/005-async-fastapi/quickstart.md](specs/005-async-fastapi/quickstart.md) §1–§4.
+- `omp-server` — production-shaped FastAPI HTTP server that exposes the full OMP verb set over HTTP using `AsyncMemory` under the hood. Install with `pip install 'openmem[server]'` then boot, e.g.:
+
+  ```sh
+  omp-server --provider postgres --url postgresql://user:pass@host:5432/db --port 8080
+  ```
+
+  Trusted-network deployment only — auth is deferred to a future release. See [specs/005-async-fastapi/contracts/http-server.md](specs/005-async-fastapi/contracts/http-server.md) for the route table, error-envelope mapping, and CORS / size-limit / health-check contracts.
+
+## HTTP server
+
+```sh
+pip install 'openmem[server]'
+omp-server --provider postgres --url postgresql://user:pass@host:5432/db
+# omp-server: serving postgres at http://127.0.0.1:8080
+```
+
+Routes mirror `spec/omp-0.1.openapi.yaml` exactly: `POST/GET/PATCH/DELETE /memories[/{id}]`, `GET /memories/search`, `POST /context`, `GET /audit`, `GET /capabilities`, `GET /healthz`. Every request emits one INFO access log line with no `user_id` and no secret-keyed values.
 
 ## License
 
