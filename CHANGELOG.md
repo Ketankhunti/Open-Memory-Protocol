@@ -2,6 +2,83 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] — Unreleased (M3.2 PR-B — `omp-server` FastAPI)
+
+### Added
+
+- **`openmem.server`** — production-shaped FastAPI HTTP server that
+  exposes the full OMP verb set as a RESTful service backed by
+  `AsyncMemory`. New install extra `[server]` (depends on
+  `openmem[async]` plus `fastapi>=0.115` and `uvicorn[standard]>=0.30`).
+  `from openmem.server import create_app` raises a clear `ImportError`
+  with `pip install 'openmem[server]'` when the extra is missing
+  (C-EXT-2).
+- **`omp-server` CLI** (`pyproject.toml [project.scripts]`) —
+  `omp-server --provider <name> [--host …] [--port …] [--url …]`. CLI
+  flags > env vars > defaults; `--help` documents trusted-network
+  deployment (auth deferred); missing config exits 2 with a
+  `omp-server: missing config:` message; successful boot prints
+  `omp-server: serving <provider> at http://<host>:<port>` to stderr
+  exactly once (C-CLI-1..4).
+- **`OmpServerConfig`** — frozen dataclass with the four CFG-INV-1..4
+  invariants (port range, body-size range, postgres URL when
+  `provider=postgres`, matching `*_API_KEY` for managed providers).
+  Importable without the FastAPI extras.
+- **9 routes** mirroring `spec/omp-0.1.openapi.yaml` 1:1:
+  `POST/GET/PATCH/DELETE /memories[/{id}]`, `GET /memories/search`,
+  `POST /context`, `GET /audit`, `GET /capabilities`, `GET /healthz`.
+  Every handler is `async def` and obtains its `AsyncMemory` via
+  `Depends(get_memory)` so client disconnect (FR-018) propagates as
+  `CancelledError` through the AsyncMemory cancellation contract.
+- **11-row error envelope mapping** (FR-016/017): every adapter
+  exception (`NotFoundError`, `InvalidRequestError`, `UnauthorizedError`,
+  `ScopeDeniedError`, `RateLimitedError`, `UnsupportedCapabilityError`,
+  `ProviderError(ingestion_timeout)`, `ProviderError(other)`,
+  unhandled `Exception`, oversized body, pool exhaustion) maps to the
+  documented HTTP status + `{"error": {"code", "message", "type"}}`
+  body. `RequestValidationError` from Pydantic is normalized to
+  `400 invalid_request`.
+- **`MaxRequestSizeMiddleware`** (FR-021): pure-ASGI guard that rejects
+  bodies > `OmpServerConfig.max_request_bytes` (1 MiB default; range
+  1 KiB..100 MiB) with `413 payload_too_large` BEFORE Pydantic runs.
+  Trusts `Content-Length` when present, else streams in bounded chunks.
+- **`LoggingMiddleware`** (FR-020): emits exactly one INFO access line
+  per request in the format
+  `<iso8601> INFO <method> <path> <status> <latency_ms>ms req=<id>`
+  with no body, no `user_id`, no `Authorization` header, and no value
+  whose key matches `(?i)password|secret|token|key|api_key`.
+  `X-Request-Id` is honored if it matches `^[A-Za-z0-9._\-]{1,64}$`,
+  otherwise replaced with a fresh UUID4; the resolved id is echoed on
+  every response (C-LOG-1..4).
+- **CORS default-deny** (FR-022): no `CORSMiddleware` is installed
+  unless `OmpServerConfig.cors_origins` is non-empty. When enabled,
+  `allow_credentials=False` and methods are limited to
+  `GET/POST/PATCH/DELETE` (C-CORS-1/2).
+- **Provider-aware `/healthz`** (FR-019): postgres acquires a pool
+  connection within 1 s; passthrough does a `HEAD` upstream within 2 s;
+  mem0/supermemory/letta return 200 unconditionally to avoid spending
+  paid API credits on health checks (C-HEA-1..4, documented in
+  `--help`).
+- **`X-User-Id` header propagation** (C-UID-1..3): GET/DELETE routes
+  read `user_id` from the header; POST/PATCH read it from the JSON
+  body. Empty/whitespace `user_id` is rejected with `400 invalid_request`
+  BEFORE the adapter is called. `user_id` never appears in log lines.
+- **OpenAPI conformance test** (FR-015) loads `spec/omp-0.1.openapi.yaml`
+  via PyYAML, resolves `$ref` schemas, and validates real
+  `httpx.AsyncClient` responses for every route × representative
+  status case via `jsonschema`.
+
+### Changed
+
+- `sdk-python/pyproject.toml`: bumped `version` to `0.5.0`; added the
+  `omp-server` console script.
+
+### Preserved
+
+- The sync `openmem.Memory` class and the `openmem.AsyncMemory` facade
+  are unchanged. The full sync + async + server suites pass at 476
+  passed / 26 skipped, total coverage 85.92 % (gate ≥ 85 %).
+
 ## [0.4.0] — Unreleased (M3.2 PR-A — `AsyncMemory`)
 
 ### Added
