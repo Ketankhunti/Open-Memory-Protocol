@@ -1,0 +1,43 @@
+---
+title: "OpenAPI Reference"
+description: "The full machine-readable OMP 0.1 specification."
+---
+
+The canonical machine-readable OMP spec lives at [`spec/omp-0.1.openapi.yaml`](https://github.com/openmem/omp/blob/main/spec/omp-0.1.openapi.yaml).
+
+You can browse the rendered API reference under the **API Reference** tab in the top nav, or download the raw document below.
+
+## Download
+
+<CardGroup cols={2}>
+  <Card title="omp-0.1.openapi.yaml" icon="file-code" href="/api-reference/openapi.yaml">
+    Raw OpenAPI 3.1 document.
+  </Card>
+  <Card title="View on GitHub" icon="github" href="https://github.com/openmem/omp/blob/main/spec/omp-0.1.openapi.yaml">
+    Source of truth in the monorepo.
+  </Card>
+</CardGroup>
+
+## Generating clients
+
+OMP-conforming SDKs are generated (or hand-written) against this document. To generate a stub client in any language:
+
+```bash
+npx @openapitools/openapi-generator-cli generate \
+  -i https://openmem.blog/api-reference/openapi.yaml \
+  -g typescript-fetch \
+  -o ./openmem-client
+```
+
+<Note>
+Generated clients are a starting point only. Production SDKs (`openmem` for Python, the upcoming TS SDK) implement additional ergonomics: capability caching, retry policy, idempotency, async surfaces, environment-based provider selection.
+</Note>
+
+## Conformance
+
+A server is **OMP 0.1 conforming** when:
+
+1. It implements all required verbs (see [Overview](/specification/0.1/overview)).
+2. It returns the standard error envelope on every error path.
+3. It correctly advertises supported optional features in `/capabilities`.
+4. It passes the conformance test suite (planned, tracked in [RFCs](/community/rfcs)).

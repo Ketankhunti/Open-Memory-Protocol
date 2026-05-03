@@ -1,0 +1,52 @@
+---
+title: "RFCs"
+description: "Specification Enhancement Proposals for OMP."
+---
+
+Substantive changes to the OMP spec land via the **RFC process** — analogous to MCP's SEPs and Python's PEPs.
+
+## What needs an RFC
+
+| Change | RFC required? |
+|---|---|
+| Add a verb | Yes |
+| Add or remove a capability | Yes |
+| Change error envelope or types | Yes |
+| Change wire format / transport | Yes |
+| New SDK in a new language | Yes |
+| New adapter | No (PR-only) |
+| Doc improvements | No |
+| Bug fixes / typo fixes | No |
+
+## Lifecycle
+
+1. **Draft.** Open a PR adding `rfcs/NNNN-short-title.md` using the [template](https://github.com/openmem/omp/blob/main/rfcs/_template.md).
+2. **Discussion.** A 14-day minimum public review window.
+3. **Final comment period.** Maintainers signal `intent to accept` or `intent to reject`.
+4. **Decision.** Merge (accepted) or close (rejected) with rationale.
+5. **Implementation.** Spec + SDK + docs land in subsequent PRs, all referencing the RFC number.
+
+## RFC numbering
+
+Sequential, starting at `0001`. Numbers are reserved at PR-open time.
+
+## Index (placeholder)
+
+Once the first RFC lands, this page becomes a generated index. Until then, browse open RFCs on GitHub:
+
+<Card title="rfcs/ on GitHub" icon="github" href="https://github.com/openmem/omp/tree/main/rfcs">
+  Open and accepted RFCs.
+</Card>
+
+## Currently planned RFCs
+
+These are tracked as issues today and will be promoted to numbered RFCs as they're drafted:
+
+- **TS SDK** — `@openmem/sdk` API surface, Bun/Deno/Node test matrix.
+- **Idempotency** — `Idempotency-Key` header semantics for `addMemory`.
+- **Authentication** — first-class auth model for `omp-server` (OAuth 2.1, API tokens, mTLS).
+- **Conformance suite** — automated test harness + "OMP Native" badge criteria.
+- **Streaming** — SSE for `searchMemories` over large result sets.
+- **E2E encryption** — client-side encryption with key management out of scope.
+- **Multi-vault federation** — query across multiple providers in a single call.
+- **Governance succession** — formal working group charter and chair election.

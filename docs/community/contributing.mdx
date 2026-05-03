@@ -1,0 +1,69 @@
+---
+title: "Contributing"
+description: "How to file issues, write RFCs, and ship code to OMP."
+---
+
+OMP is built in the open and welcomes contributions of all sizes — from typo fixes to new adapters to entire SDKs in new languages.
+
+## Where to start
+
+| If you want to… | Start here |
+|---|---|
+| Report a bug | [GitHub Issues](https://github.com/openmem/omp/issues) |
+| Ask a question | [GitHub Discussions](https://github.com/openmem/omp/discussions) |
+| Propose a spec change | Open an [RFC](/community/rfcs) |
+| Write a new adapter | [Adapter guide](#writing-an-adapter) below |
+| Improve docs | Edit any page in `docs/` and open a PR |
+| Port to a new language | Open an RFC first, then a PR |
+
+## Repository layout
+
+```
+openmem/omp
+├── spec/                    # Normative spec sources (OpenAPI + prose)
+├── sdk-python/              # Reference Python SDK + omp-server
+├── docs/                    # This site (Mintlify)
+├── examples/
+└── .specify/                # Project conventions
+```
+
+## Local setup
+
+```bash
+git clone https://github.com/openmem/omp.git
+cd omp/sdk-python
+python -m venv .venv
+. .venv/bin/activate         # Windows: .venv\Scripts\Activate.ps1
+pip install -e ".[dev,async,server]"
+pytest
+```
+
+CI runs on Python 3.12 with Postgres + pgvector. The full suite is 476 tests; coverage gates are ≥ 85% overall and ≥ 90% for `openmem.adapters.postgres`.
+
+## Conventions
+
+- **One PR, one concern.**
+- **Tests required** for every behavior change.
+- **Spec changes** must update both `spec/omp-0.1.openapi.yaml` and the matching `docs/specification/0.1/` page in the same PR.
+- **No new public API** without a `CHANGELOG.md` entry.
+- **Conventional Commits** for commit messages (`feat:`, `fix:`, `docs:`, `chore:`, …).
+
+## Writing an adapter
+
+A new adapter lives at `sdk-python/openmem/adapters/<name>/`. It implements the `MemoryAdapter` (sync) and/or `AsyncMemoryAdapter` (async) protocol — see existing adapters as reference. Required:
+
+1. Implement the required verbs (see [Spec Overview](/specification/0.1/overview)).
+2. Declare features accurately in `capabilities()`.
+3. Map provider errors to OMP error types (see [Errors](/specification/0.1/errors)).
+4. Ship a contract test using the shared `tests/contract/` harness.
+5. Add a row to the [Providers matrix](/providers).
+
+## Reviewer expectations
+
+- Substantive PRs get a first response within **5 business days**.
+- Spec PRs go through the [RFC process](/community/rfcs) — a 14-day public review window.
+- Maintainers won't merge their own non-trivial PRs without a second reviewer.
+
+## Code of conduct
+
+By contributing you agree to follow the [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).

@@ -1,0 +1,43 @@
+---
+title: "Versioning"
+description: "How OMP versions the spec, the SDK, and the wire."
+---
+
+OMP keeps three versions independent:
+
+| Version | Lives in | Today |
+|---|---|---|
+| **Spec version** | `info.version` of the OpenAPI document | `0.1.0` |
+| **SDK version** | `openmem.__version__` (Python) | `0.5.0` |
+| **Wire compat** | `OMP-Version` HTTP header | `0.1` |
+
+## Spec version (semver)
+
+The spec follows semver:
+
+- **Major** — breaking change to verbs, schema, or error envelope. Requires a new URL prefix (e.g. `/v1/`).
+- **Minor** — additive change (new verbs, new optional fields, new capabilities). Existing clients keep working.
+- **Patch** — clarifications, typo fixes, non-normative wording.
+
+The current spec lives at [`/specification/0.1/`](/specification/0.1/overview). Future major versions get sibling URLs (e.g. `/specification/1.0/`); old versions remain forever.
+
+## SDK version
+
+SDK versions are independent of the spec. SDK 0.5.0 implements spec 0.1. The SDK may release several minor/patch versions per spec version.
+
+## Wire-level compatibility
+
+Servers MUST send `OMP-Version: 0.1` on every response. Clients MAY send `OMP-Version: 0.1` on requests. A future server that supports multiple versions selects based on the client header.
+
+## Capability negotiation
+
+Within a spec version, optional features are negotiated via [`/capabilities`](/specification/0.1/capabilities). Servers add new capabilities in minor spec releases. Clients **must** check capabilities — never assume a feature exists.
+
+## Deprecation policy
+
+- Deprecated fields and verbs remain functional for **at least one minor spec release** before removal in a major release.
+- Deprecations are announced in the [changelog](/specification/0.1/changelog) and via `Deprecation` HTTP headers (RFC 9745) on responses.
+
+## SDK deprecation
+
+The SDK gives **at least one minor release** of warnings before removing a public API. `DeprecationWarning` is raised when the deprecated symbol is used.

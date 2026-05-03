@@ -1,0 +1,69 @@
+---
+title: "Specification 0.1 — Overview"
+description: "The canonical, versioned definition of the Open Memory Protocol."
+---
+
+<Note>
+You are viewing **OMP 0.1.0**, the current stable spec. The machine-readable source is [`spec/omp-0.1.openapi.yaml`](https://github.com/openmem/omp/blob/main/spec/omp-0.1.openapi.yaml) on GitHub.
+</Note>
+
+OMP 0.1 defines **9 verbs** organized into three tag groups, plus a single error envelope, a capabilities document, and an audit feed.
+
+## Verbs at a glance
+
+| Verb | Path | Group | Purpose |
+|---|---|---|---|
+| `addMemory` | `POST /memories` | memories | Create a memory. |
+| `listMemories` | `GET /memories` | memories | Page memories for a user. |
+| `getMemory` | `GET /memories/{id}` | memories | Fetch one memory. |
+| `updateMemory` | `PATCH /memories/{id}` | memories | Partial update. |
+| `deleteMemory` | `DELETE /memories/{id}` | memories | Remove a memory. |
+| `searchMemories` | `GET /memories/search` | search | Semantic + filter search. |
+| `getContext` | `POST /context` | search | Ranked, deduped bundle for prompts. |
+| `getAudit` | `GET /audit` | meta | Operation history (when supported). |
+| `getCapabilities` | `GET /capabilities` | meta | Discover what the provider supports. |
+
+## Required vs optional
+
+A conforming server MUST implement:
+
+- `addMemory`, `getMemory`, `listMemories`, `deleteMemory`, `searchMemories`
+- `getCapabilities`
+- The standard error envelope on every error path.
+
+A conforming server MAY implement:
+
+- `updateMemory`, `getContext`, `getAudit`
+- Each declared in [`/capabilities`](/specification/0.1/capabilities).
+
+## Authentication
+
+The spec defines two security schemes (`bearerAuth` and `apiKeyAuth`) but does not mandate either. Reference deployments of `omp-server` ship without auth and assume a trusted network — auth is delegated to a fronting proxy. Native providers (Mem0, Supermemory) carry their own auth.
+
+## Transport
+
+OMP 0.1 is HTTP/JSON only. Streaming, WebSocket, and gRPC bindings are out of scope for 0.1 and tracked as [RFCs](/community/rfcs).
+
+## Strictness
+
+- All requests and responses use `application/json; charset=utf-8`.
+- All datetimes are RFC 3339.
+- All identifiers are opaque strings; clients MUST NOT parse them.
+- Unknown fields in requests are ignored; unknown fields in responses are preserved.
+
+## Read next
+
+<CardGroup cols={2}>
+  <Card title="Capabilities" href="/specification/0.1/capabilities" icon="list-check">
+    The full capabilities matrix.
+  </Card>
+  <Card title="Errors" href="/specification/0.1/errors" icon="triangle-exclamation">
+    Standard error envelope and codes.
+  </Card>
+  <Card title="OpenAPI reference" href="/specification/0.1/openapi" icon="file-code">
+    Browse the full machine-readable spec.
+  </Card>
+  <Card title="Changelog" href="/specification/0.1/changelog" icon="list">
+    What changed and what's coming.
+  </Card>
+</CardGroup>

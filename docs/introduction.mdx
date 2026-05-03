@@ -1,0 +1,57 @@
+---
+title: "What is OpenMemory Protocol?"
+description: "One API for any AI memory provider — open, versioned, vendor-neutral."
+---
+
+**Open Memory Protocol (OMP)** is an open standard that lets AI applications read, write, and search persistent user memory through **one API**, against **any backend** — Mem0, Supermemory, Zep, Notion, Postgres, or a self-hosted vault — without changing application code.
+
+OMP is to AI memory what **S3** is to object storage, **OAuth** is to identity, and **MCP** is to LLM tools.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and store your first memory in 30 seconds.
+  </Card>
+  <Card title="Read the spec" icon="book" href="/specification/0.1/overview">
+    The canonical, versioned protocol definition.
+  </Card>
+  <Card title="Run a server" icon="server" href="/server">
+    Stand up `omp-server` for any OMP-compatible client.
+  </Card>
+  <Card title="Browse providers" icon="plug" href="/providers">
+    Compatibility matrix across memory backends.
+  </Card>
+</CardGroup>
+
+## Why OMP
+
+Today every memory provider has a different SDK, schema, auth model, and concept of users and scopes. App developers must:
+
+- Pick **one** provider and lock users in, **or**
+- Build N integrations (most don't), **or**
+- Skip memory entirely.
+
+End users cannot bring memory across apps, switch providers, or audit what each app reads.
+
+OMP fixes this with a small, unambiguous protocol covering the 80% memory use case, plus reference SDKs and adapters that bridge existing providers today and let providers implement OMP natively tomorrow.
+
+## How it relates to MCP and A2A
+
+| Standard | What it standardizes |
+|---|---|
+| **MCP** (Model Context Protocol) | How agents talk to **tools** |
+| **A2A** (Agent2Agent) | How agents talk to **other agents** |
+| **OMP** (Open Memory Protocol) | How agents talk to **memory** |
+
+The three are complementary. An agent can use MCP for tools, A2A for delegation, and OMP for persistent memory — across the same user, across vendors.
+
+## Project status
+
+| | |
+|---|---|
+| Spec version | **0.1.0** |
+| Python SDK | **0.5.0** ([install](/quickstart)) |
+| Reference server | `omp-server` (FastAPI) |
+| TypeScript SDK | Planned (see [roadmap](/community/rfcs)) |
+| License | Apache-2.0 |
+
+Open Memory Protocol is governed in the open. See [Governance](/community/governance) and [Contributing](/community/contributing).

@@ -1,0 +1,64 @@
+---
+title: "Architecture"
+description: "How the OMP protocol, SDK, and adapters fit together."
+---
+
+OMP has three layers:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     APP DEVELOPERS                           │
+│            ChatGPT • Claude • Cursor • Custom agents         │
+│                                                              │
+│  Code:  mem.add(...) / mem.search(...) / mem.context(...)    │
+└────────────────────────────┬─────────────────────────────────┘
+                             │
+                             │  ONE API (OMP)
+                             ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  OMP LIBRARY / GATEWAY                       │
+│  • Protocol enforcement                                      │
+│  • Standard schema normalization                             │
+│  • Scope / consent enforcement                               │
+│  • Audit log                                                 │
+│  • Adapter framework                                         │
+└────┬──────────┬──────────┬──────────┬──────────┬─────────────┘
+     ▼          ▼          ▼          ▼          ▼
+  ┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌─────────────┐
+  │ Mem0 │ │Super-  │ │ Zep  │ │ Notion │ │ User's      │
+  │      │ │memory  │ │      │ │        │ │ Postgres    │
+  └──────┘ └────────┘ └──────┘ └────────┘ └─────────────┘
+```
+
+## The three layers
+
+**1. Protocol.** A versioned OpenAPI document ([`omp-0.1.openapi.yaml`](/specification/0.1/openapi)) defines verbs, schema, errors, and capability negotiation. Anything that speaks this is OMP-compatible.
+
+**2. SDK.** Idiomatic client libraries (Python today, TypeScript soon) implement the protocol with sync and async surfaces, plus a Pythonic `Memory.from_env()` ergonomics layer.
+
+**3. Adapters.** Each backend (Mem0, Supermemory, Postgres+pgvector, …) is a plug-in module. Adapters declare their `capabilities` so apps can degrade gracefully when a backend lacks a feature (e.g., no graph queries).
+
+## Two adapter modes
+
+Adapters operate in one of two modes — transparently chosen per provider:
+
+| Mode | When | Example |
+|---|---|---|
+| **Translation** | Provider has a non-OMP API. SDK converts OMP calls into provider-native calls. | Mem0, Supermemory today |
+| **Passthrough** | Provider implements OMP natively. SDK forwards HTTP 1:1. | Self-hosted `omp-server`; future native providers |
+
+App code never knows which mode is in use. The SDK auto-detects via `/capabilities`.
+
+## Phases of adoption
+
+OMP is built in three phases:
+
+1. **Wrapper (months 0–6).** SDK uses translation adapters. Apps adopt OMP for free; providers do nothing.
+2. **Protocol recognition (months 6–18).** Apps create demand. Providers implement OMP natively for an "OMP Native" badge.
+3. **Standard (months 18+).** Major providers expose OMP endpoints. Translation adapters remain only for legacy backends (e.g., Notion).
+
+> App developers' code never changes across phases. The SDK and adapters absorb the transition.
+
+## Reference server
+
+`omp-server` (FastAPI + asyncpg) is the reference implementation of the spec. Anything that proxies/adapts an OMP API can swap in without client changes. See [Server](/server).

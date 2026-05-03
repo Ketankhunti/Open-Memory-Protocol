@@ -1,0 +1,46 @@
+---
+title: "Governance"
+description: "How OMP is governed in the open."
+---
+
+OMP is an **open protocol**, governed in the open by a working group with a published charter, a public RFC process, and a permissive license.
+
+## Principles
+
+1. **Open spec, open SDK.** Apache-2.0. No tracking, no telemetry, no lock-in.
+2. **Vendor neutrality.** No provider has special standing in the spec.
+3. **One canonical source of truth.** The OpenAPI document under `/specification/<version>/` is normative. Prose is explanatory.
+4. **Backwards-compatible by default.** Breaking changes require a major version bump, with the prior major remaining available indefinitely.
+5. **User sovereignty.** Memory belongs to the user. Audit and capability negotiation are not optional in spirit, even when they are technically optional in the spec.
+
+## Working group
+
+OMP is currently shepherded by the founding maintainers (see GitHub `CODEOWNERS`). As the project grows we expect to evolve into a chartered working group with rotating chairs, modeled on the MCP and A2A governance structures.
+
+| Role | Today | Future |
+|---|---|---|
+| **Spec editor** | Maintainers | Elected, 1-year term |
+| **SDK maintainers** | Per-language teams | Per-language teams |
+| **RFC reviewers** | Maintainers + invited reviewers | Working group quorum |
+
+## Decision process
+
+1. **Discuss.** Open a GitHub Discussion or Issue.
+2. **Propose.** Open an [RFC](/community/rfcs) (PR against `rfcs/`).
+3. **Review.** Public review window of at least 14 days for substantive changes.
+4. **Decide.** Maintainer consensus; lazy approval after the review window if no objections.
+5. **Land.** Merge the RFC, update the spec, ship in the next minor release.
+
+## Code of conduct
+
+OMP follows the [Contributor Covenant 2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/). Violations may be reported privately to the maintainers via the contact in the GitHub repo.
+
+## License
+
+- **Spec & docs:** Apache-2.0.
+- **Reference SDKs:** Apache-2.0.
+- **Trademarks:** "Open Memory Protocol" and "OMP" are project marks; usage policy will be published before 1.0.
+
+## Long-term home
+
+The long-term goal is to donate the spec to a vendor-neutral foundation (e.g., the Linux Foundation, modeled on MCP and A2A) once adoption justifies it. Until then, the project is hosted under the `openmem` GitHub organization with documented succession in the [governance RFC](/community/rfcs).

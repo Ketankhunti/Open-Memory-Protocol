@@ -1,0 +1,133 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Open Memory Protocol",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://openmem.blog"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0F766E",
+    "light": "#14B8A6",
+    "dark": "#0F766E",
+    "anchors": {
+      "from": "#0F766E",
+      "to": "#14B8A6"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/openmem/omp"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Quickstart",
+    "url": "/quickstart"
+  },
+  "tabs": [
+    {
+      "name": "Specification",
+      "url": "specification"
+    },
+    {
+      "name": "SDKs",
+      "url": "sdk"
+    },
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/openmem/omp"
+    },
+    {
+      "name": "Changelog",
+      "icon": "list",
+      "url": "specification/0.1/changelog"
+    },
+    {
+      "name": "RFCs",
+      "icon": "file-lines",
+      "url": "community/rfcs"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get started",
+      "pages": [
+        "introduction",
+        "quickstart"
+      ]
+    },
+    {
+      "group": "Learn",
+      "pages": [
+        "learn/architecture",
+        "learn/concepts",
+        "learn/versioning"
+      ]
+    },
+    {
+      "group": "Server",
+      "pages": [
+        "server",
+        "providers"
+      ]
+    },
+    {
+      "group": "Community",
+      "pages": [
+        "community/governance",
+        "community/contributing",
+        "community/rfcs",
+        "faq"
+      ]
+    },
+    {
+      "group": "Specification 0.1",
+      "pages": [
+        "specification/0.1/overview",
+        "specification/0.1/capabilities",
+        "specification/0.1/errors",
+        "specification/0.1/openapi",
+        "specification/0.1/changelog"
+      ]
+    },
+    {
+      "group": "Python SDK",
+      "pages": [
+        "sdk/python"
+      ]
+    },
+    {
+      "group": "TypeScript SDK",
+      "pages": [
+        "sdk/typescript"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/introduction"
+      ]
+    }
+  ],
+  "openapi": "/api-reference/openapi.yaml",
+  "footerSocials": {
+    "github": "https://github.com/openmem/omp"
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true,
+    "raiseIssue": true
+  },
+  "search": {
+    "prompt": "Search the OpenMemory Protocol docs..."
+  }
+}

@@ -1,0 +1,103 @@
+---
+title: "Python SDK"
+description: "openmem — the reference Python SDK for OMP."
+---
+
+The Python SDK is the reference client and server implementation of OMP.
+
+| | |
+|---|---|
+| Distribution | `openmem` ([PyPI](https://pypi.org/project/openmem/)) |
+| Import | `import openmem` |
+| Current version | **0.5.0** |
+| Spec version | **0.1.0** |
+| Python | 3.10+ |
+| License | Apache-2.0 |
+
+## Install
+
+<CodeGroup>
+```bash core
+pip install openmem
+```
+
+```bash + async
+pip install "openmem[async]"
+```
+
+```bash + reference HTTP server
+pip install "openmem[server]"
+```
+
+```bash everything
+pip install "openmem[async,server]"
+```
+</CodeGroup>
+
+## Sync usage
+
+```python
+from openmem import Memory
+
+mem = Memory.from_env()
+
+mem.add(user_id="alice", text="Prefers vegetarian meals.", scope="preferences")
+
+for hit in mem.search(user_id="alice", query="dietary restrictions"):
+    print(hit.score, hit.text)
+```
+
+## Async usage
+
+```python
+import asyncio
+from openmem import AsyncMemory
+
+async def main():
+    async with AsyncMemory.from_env() as mem:
+        await mem.add(user_id="alice", text="Lives in Toronto.")
+        results = await mem.search(user_id="alice", query="where does alice live?")
+        for hit in results:
+            print(hit.text)
+
+asyncio.run(main())
+```
+
+`AsyncMemory` is an async context manager. It pools provider connections (e.g., asyncpg pool for the Postgres adapter) and closes them cleanly on exit.
+
+## Provider selection
+
+Set `OMP_PROVIDER` plus the provider's env vars; everything else is automatic. See [Providers](/providers) for the full list.
+
+```bash
+export OMP_PROVIDER=postgres
+export POSTGRES_URL=postgresql://user:pass@host/omp
+```
+
+You can also instantiate directly:
+
+```python
+from openmem.adapters.postgres import PostgresAdapter
+from openmem import AsyncMemory
+
+mem = AsyncMemory(adapter=PostgresAdapter(url="postgresql://..."))
+```
+
+## Capabilities
+
+```python
+caps = mem.capabilities()
+if caps.features.audit:
+    for entry in mem.audit(user_id="alice", limit=20):
+        print(entry.timestamp, entry.verb)
+```
+
+## Reference HTTP server
+
+The `openmem[server]` extra installs `omp-server`, the reference FastAPI implementation of the spec. See [Server](/server).
+
+## Source
+
+Code: [github.com/openmem/omp/tree/main/sdk-python](https://github.com/openmem/omp/tree/main/sdk-python)
+
+Tests: 476 passing, ≥85% coverage.

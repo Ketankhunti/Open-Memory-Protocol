@@ -46,3 +46,18 @@ jobs:
             --cov=openmem.adapters.postgres \
             --cov-report=term-missing \
             --cov-fail-under=90
+
+  docs-openapi-sync:
+    name: docs OpenAPI in sync with spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify docs/api-reference/openapi.yaml matches spec/omp-0.1.openapi.yaml
+        run: |
+          if ! cmp -s spec/omp-0.1.openapi.yaml docs/api-reference/openapi.yaml; then
+            echo "::error::docs/api-reference/openapi.yaml is out of sync with spec/omp-0.1.openapi.yaml"
+            echo "Run: cp spec/omp-0.1.openapi.yaml docs/api-reference/openapi.yaml"
+            diff spec/omp-0.1.openapi.yaml docs/api-reference/openapi.yaml || true
+            exit 1
+          fi
+          echo "OK: docs OpenAPI mirror is in sync."

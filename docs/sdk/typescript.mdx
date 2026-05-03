@@ -1,0 +1,56 @@
+---
+title: "TypeScript SDK"
+description: "@openmem/sdk — coming soon."
+---
+
+<Warning>
+The TypeScript SDK is **planned but not yet released.** Track progress in the [RFC](/community/rfcs) and the GitHub issue tracker.
+</Warning>
+
+## Planned shape
+
+The TypeScript SDK will mirror the Python ergonomics:
+
+```typescript
+import { Memory } from "@openmem/sdk";
+
+const mem = Memory.fromEnv();
+
+await mem.add({
+  userId: "alice",
+  text: "Prefers vegetarian meals.",
+  scope: "preferences",
+});
+
+const hits = await mem.search({
+  userId: "alice",
+  query: "dietary restrictions",
+});
+```
+
+| | |
+|---|---|
+| Distribution | `@openmem/sdk` (npm, reserved) |
+| Runtime | Node 20+, Bun, Deno, browsers (with CORS-enabled servers) |
+| Target spec | OMP 0.1.0 |
+
+## Why not yet
+
+The Python SDK is the reference implementation — every spec decision is validated against it (476 tests, full async surface, reference server). The TS SDK ships next once 0.1 is publicly stable on PyPI.
+
+## In the meantime
+
+Until the official SDK ships, you can talk to any OMP server from TypeScript using a generated client:
+
+```bash
+npx @openapitools/openapi-generator-cli generate \
+  -i https://openmem.blog/api-reference/openapi.yaml \
+  -g typescript-fetch \
+  -o ./openmem-client
+```
+
+Or hand-write a thin `fetch` wrapper — every verb is a single HTTP call. See the [OpenAPI reference](/specification/0.1/openapi).
+
+## Want to help?
+
+The TS SDK is a great first contribution. See [Contributing](/community/contributing).

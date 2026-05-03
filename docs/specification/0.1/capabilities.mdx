@@ -1,0 +1,70 @@
+---
+title: "Capabilities"
+description: "How servers declare what they support, and how clients negotiate."
+---
+
+Every OMP server MUST implement `GET /capabilities`. It returns a JSON document declaring which optional verbs and features the provider supports.
+
+## Example response
+
+```json
+{
+  "spec_version": "0.1",
+  "provider": "postgres",
+  "verbs": [
+    "addMemory",
+    "getMemory",
+    "listMemories",
+    "updateMemory",
+    "deleteMemory",
+    "searchMemories",
+    "getContext",
+    "getAudit",
+    "getCapabilities"
+  ],
+  "features": {
+    "scopes": true,
+    "metadata_filter": true,
+    "graph": false,
+    "summarization": false,
+    "vector_search": true,
+    "audit": true,
+    "max_text_bytes": 16384,
+    "max_metadata_bytes": 4096
+  }
+}
+```
+
+## Field reference
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `spec_version` | string | yes | OMP spec version (e.g. `"0.1"`). |
+| `provider` | string | yes | Adapter id (e.g. `mem0`, `supermemory`, `postgres`). |
+| `verbs` | string[] | yes | OperationIds the server implements. |
+| `features.scopes` | bool | yes | Supports the `scope` field on memories and search filters. |
+| `features.metadata_filter` | bool | yes | Search supports `metadata_filter` predicates. |
+| `features.graph` | bool | yes | Supports graph-style relations between memories. |
+| `features.summarization` | bool | yes | `/context` performs summarization, not just selection. |
+| `features.vector_search` | bool | yes | Search uses semantic similarity (false → keyword only). |
+| `features.audit` | bool | yes | `/audit` is implemented. |
+| `features.max_text_bytes` | int | yes | Hard upper bound on `text` per memory. |
+| `features.max_metadata_bytes` | int | yes | Hard upper bound on encoded `metadata`. |
+
+## Client contract
+
+Clients **MUST**:
+- Call `/capabilities` once at startup and cache the result.
+- Skip features the server does not advertise (do not call `/audit` if `features.audit` is false).
+- Never assume a feature exists because a sibling provider supports it.
+
+Clients **SHOULD**:
+- Surface unsupported features to users (e.g. "graph queries not available with this provider").
+
+## Adding capabilities
+
+New capabilities are added in **minor** spec releases. Servers that pre-date a new capability simply omit it; clients treat omission as `false`. This is why every consumer must read the document defensively.
+
+## Reference matrix
+
+The current capability matrix across reference providers lives at [Providers](/providers).

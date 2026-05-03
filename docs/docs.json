@@ -1,0 +1,156 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Open Memory Protocol",
+  "colors": {
+    "primary": "#0F766E",
+    "light": "#14B8A6",
+    "dark": "#0F766E"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "anchors": [
+      {
+        "anchor": "Documentation",
+        "icon": "book-open",
+        "tabs": [
+          {
+            "tab": "Documentation",
+            "groups": [
+              {
+                "group": "Get started",
+                "pages": [
+                  "introduction",
+                  "quickstart"
+                ]
+              },
+              {
+                "group": "Learn",
+                "pages": [
+                  "learn/architecture",
+                  "learn/concepts",
+                  "learn/versioning"
+                ]
+              },
+              {
+                "group": "Server",
+                "pages": [
+                  "server",
+                  "providers"
+                ]
+              },
+              {
+                "group": "Community",
+                "pages": [
+                  "community/governance",
+                  "community/contributing",
+                  "faq"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "Specification",
+            "groups": [
+              {
+                "group": "Specification 0.1",
+                "pages": [
+                  "specification/0.1/overview",
+                  "specification/0.1/capabilities",
+                  "specification/0.1/errors",
+                  "specification/0.1/openapi"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "SDKs",
+            "groups": [
+              {
+                "group": "Python SDK",
+                "pages": [
+                  "sdk/python"
+                ]
+              },
+              {
+                "group": "TypeScript SDK",
+                "pages": [
+                  "sdk/typescript"
+                ]
+              }
+            ]
+          },
+          {
+            "tab": "API Reference",
+            "groups": [
+              {
+                "group": "API Reference",
+                "pages": [
+                  "api-reference/introduction"
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "GitHub",
+        "href": "https://github.com/openmem/omp",
+        "icon": "github"
+      },
+      {
+        "anchor": "Changelog",
+        "icon": "list",
+        "groups": [
+          {
+            "group": "Specification 0.1",
+            "pages": [
+              "specification/0.1/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "anchor": "RFCs",
+        "icon": "file-lines",
+        "groups": [
+          {
+            "group": "Community",
+            "pages": [
+              "community/rfcs"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://openmem.blog"
+  },
+  "api": {
+    "openapi": "api-reference/openapi.yaml"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/openmem/omp"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Quickstart",
+      "href": "/quickstart"
+    }
+  },
+  "search": {
+    "prompt": "Search the OpenMemory Protocol docs..."
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/openmem/omp"
+    }
+  }
+}

@@ -1,0 +1,60 @@
+---
+title: "FAQ"
+description: "Frequently asked questions about OMP."
+---
+
+## How is OMP different from MCP?
+
+**MCP** standardizes how agents talk to **tools**. **OMP** standardizes how agents talk to **memory**. They're complementary — an agent can use both. See [Introduction](/introduction).
+
+## Is OMP a product or a protocol?
+
+A protocol, with reference SDKs. We don't run a hosted memory service. The spec is vendor-neutral and the SDKs are Apache-2.0. Anyone can implement OMP.
+
+## Why not just use Mem0 / Supermemory / Zep directly?
+
+Pick any one and you lock your users into that backend. OMP is the abstraction layer that lets users (or apps) **swap providers without changing app code**. Same reason apps target the S3 API instead of MinIO or R2 directly.
+
+## Does OMP require running your infrastructure?
+
+No. OMP is just a spec plus SDKs. Run any provider, run `omp-server` against any backend, or implement OMP natively in your own server. We host nothing.
+
+## Is OMP affiliated with any provider?
+
+No. We talk to all of them. The spec belongs to the community.
+
+## What's the relationship to MCP and A2A?
+
+OMP is modeled on the same governance and openness principles. We expect to formalize this further as adoption grows — see [Governance](/community/governance).
+
+## When will the TypeScript SDK ship?
+
+After the Python SDK is publicly stable on PyPI (currently waiting on a name dispute resolution). Track progress on [SDK / TypeScript](/sdk/typescript) and the [RFC](/community/rfcs).
+
+## Does OMP support end-to-end encryption?
+
+Not in 0.1. Clients MAY encrypt `text` and `metadata` client-side today; the spec is opaque about content. First-class E2E (with key escrow / rotation patterns) is planned for 0.2 — see [Changelog](/specification/0.1/changelog).
+
+## How is OMP authenticated?
+
+The spec defines two security schemes (`bearerAuth`, `apiKeyAuth`) but mandates neither. The reference `omp-server` ships **without auth** and is intended for trusted-network deployment behind a reverse proxy. Native providers (Mem0, Supermemory) carry their own auth. First-class server auth is on the roadmap.
+
+## Can I use OMP without the SDK?
+
+Yes — every verb is a single HTTP call against a JSON OpenAPI spec. See [OpenAPI Reference](/specification/0.1/openapi).
+
+## What if my provider doesn't implement OMP natively?
+
+Use a translation adapter. The SDK ships with adapters for Mem0, Supermemory, and Postgres + pgvector today. More are planned — see [Providers](/providers). Writing a new adapter is straightforward — see [Contributing](/community/contributing).
+
+## How do I contribute?
+
+See [Contributing](/community/contributing). Good first contributions: new adapters, doc improvements, examples, the TypeScript SDK.
+
+## Where do I report security issues?
+
+Privately, to the maintainers via the security contact in the GitHub repo (`SECURITY.md`). Please do **not** open public issues for vulnerabilities.
+
+## Where can I read the spec?
+
+[Specification 0.1 → Overview](/specification/0.1/overview) for the prose, or the raw [OpenAPI document](/api-reference/openapi.yaml) for the machine-readable source.

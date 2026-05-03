@@ -1,0 +1,80 @@
+---
+title: "Core Concepts"
+description: "Memory, scopes, contexts, capabilities, and audit."
+---
+
+## Memory
+
+A **Memory** is an atomic unit of remembered information — a fact, preference, event, or document chunk. Every memory has:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | string | Provider-assigned, opaque, stable. |
+| `user_id` | string | Owner of the memory. Required on every verb. |
+| `text` | string | Human-readable content. |
+| `scope` | string | Logical category (e.g. `preferences`, `notes`, `chat:42`). |
+| `metadata` | object | Free-form key/value store. |
+| `created_at` | RFC 3339 datetime | Provider-assigned. |
+| `updated_at` | RFC 3339 datetime | Provider-assigned. |
+
+## User
+
+A **user** is the principal who owns memories. OMP does not prescribe an auth model — `user_id` is opaque to the protocol. Apps and providers agree on its meaning out of band.
+
+## Scope
+
+A **scope** is a logical bucket for memories belonging to a user. Apps use scopes to separate concerns:
+
+- `preferences` — long-lived user prefs
+- `chat:<thread-id>` — short-lived conversation memory
+- `notes` — explicitly user-authored notes
+
+Search and list verbs accept an optional `scope` filter.
+
+## Context
+
+The `/context` verb returns a **ranked, deduplicated bundle** of memories formatted for direct injection into an LLM prompt. It is the highest-level OMP verb and the most opinionated — providers may apply summarization, dedup, and recency weighting.
+
+## Capabilities
+
+Not every backend supports every feature. The `/capabilities` verb returns a JSON document declaring what the provider implements:
+
+```json
+{
+  "verbs": ["add", "get", "search", "list", "update", "delete", "context", "audit"],
+  "scopes": true,
+  "metadata_filter": true,
+  "graph": false,
+  "summarization": true,
+  "max_text_bytes": 16384
+}
+```
+
+Apps **must** call `/capabilities` and degrade gracefully — never assume a feature exists.
+
+## Audit
+
+The `/audit` verb returns a chronological log of operations performed on a user's memories. Providers that support it expose:
+
+- `actor` — who performed the operation
+- `verb` — which OMP verb
+- `memory_id` — affected memory (if any)
+- `timestamp` — RFC 3339
+
+Audit is required for any provider claiming privacy/compliance posture. See [Capabilities](/specification/0.1/capabilities) for the conformance matrix.
+
+## Errors
+
+OMP defines a single error envelope across all verbs:
+
+```json
+{
+  "error": {
+    "type": "invalid_request",
+    "code": "missing_user_id",
+    "message": "user_id is required"
+  }
+}
+```
+
+See [Errors](/specification/0.1/errors) for the full taxonomy.

@@ -1,0 +1,33 @@
+---
+title: "Spec Changelog"
+description: "What changed in each release of the OMP specification."
+---
+
+## 0.1.0 — Initial public release
+
+**Status:** stable
+
+The first publicly versioned release of OMP. Defines:
+
+- 9 verbs across `memories`, `search`, `meta` tag groups.
+- A single error envelope with 11 canonical types.
+- Capability negotiation via `GET /capabilities`.
+- Two security schemes (`bearerAuth`, `apiKeyAuth`), neither required.
+- HTTP/JSON transport only.
+
+Reference implementations:
+- Python SDK `openmem` 0.5.0 (sync + async + reference HTTP server).
+- Adapters: Mem0, Supermemory, Postgres + pgvector.
+
+---
+
+## Roadmap (not normative)
+
+Tracked as [RFCs](/community/rfcs):
+
+- **0.1.x** — `Idempotency-Key` header, conformance test suite, `Deprecation` headers (RFC 9745).
+- **0.2** — Optional E2E encryption, streaming search results (SSE), provider compliance matrix in spec repo.
+- **0.3** — Multi-vault federation, graph-native query primitives.
+- **1.0** — Stabilize 0.x learnings; freeze wire format for major-version compatibility window.
+
+> Roadmap items are advisory and may shift based on community input. File an [RFC](/community/rfcs) to propose or change one.

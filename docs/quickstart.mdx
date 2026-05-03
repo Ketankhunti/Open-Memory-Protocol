@@ -1,0 +1,91 @@
+---
+title: "Quickstart"
+description: "Install the OMP Python SDK and write your first memory in under a minute."
+---
+
+## 1. Install
+
+<CodeGroup>
+```bash pip
+pip install openmem
+```
+
+```bash with async + server
+pip install "openmem[async,server]"
+```
+</CodeGroup>
+
+<Note>
+The Python SDK ships under the `openmem` distribution name. Async and server features are optional extras.
+</Note>
+
+## 2. Write and read a memory
+
+```python
+from openmem import Memory
+
+mem = Memory.from_env()  # reads OMP_PROVIDER + provider env vars
+
+mid = mem.add(
+    user_id="alice",
+    text="Alice prefers concise, bullet-point answers.",
+    scope="preferences",
+)
+
+results = mem.search(user_id="alice", query="how does alice like answers?")
+for hit in results:
+    print(hit.score, hit.text)
+```
+
+## 3. Pick a backend
+
+OMP is provider-neutral. Set `OMP_PROVIDER` plus the provider's credentials:
+
+<CodeGroup>
+```bash Mem0
+export OMP_PROVIDER=mem0
+export MEM0_API_KEY=...
+```
+
+```bash Supermemory
+export OMP_PROVIDER=supermemory
+export SUPERMEMORY_API_KEY=...
+```
+
+```bash Postgres + pgvector
+export OMP_PROVIDER=postgres
+export POSTGRES_URL=postgresql://user:pass@host/db
+```
+</CodeGroup>
+
+Switching providers requires **zero code changes**. See the full matrix on [Providers](/providers).
+
+## 4. Run an OMP server (optional)
+
+Any OMP client can talk to any OMP server over HTTP. To stand one up:
+
+```bash
+pip install "openmem[server]"
+export OMP_PROVIDER=postgres
+export POSTGRES_URL=postgresql://localhost/omp
+omp-server --host 0.0.0.0 --port 8080
+```
+
+The server implements the [OMP 0.1 OpenAPI spec](/specification/0.1/openapi) 1:1. See [Server](/server) for production deployment notes.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="diagram-project" href="/learn/architecture">
+    Understand the protocol layering.
+  </Card>
+  <Card title="Core concepts" icon="brain" href="/learn/concepts">
+    Memory, scopes, contexts, audit.
+  </Card>
+  <Card title="Capabilities" icon="list-check" href="/specification/0.1/capabilities">
+    What each provider supports.
+  </Card>
+  <Card title="Errors" icon="triangle-exclamation" href="/specification/0.1/errors">
+    Standard error envelope.
+  </Card>
+</CardGroup>

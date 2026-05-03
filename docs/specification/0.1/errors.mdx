@@ -1,0 +1,58 @@
+---
+title: "Errors"
+description: "The single error envelope used by every OMP verb."
+---
+
+OMP defines **one** error envelope. Every non-2xx response uses it.
+
+## Envelope
+
+```json
+{
+  "error": {
+    "type": "invalid_request",
+    "code": "missing_user_id",
+    "message": "user_id is required",
+    "details": { }
+  }
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `type` | yes | One of the canonical types below. Stable across versions. |
+| `code` | yes | Stable, machine-readable, snake_case identifier. |
+| `message` | yes | Human-readable, ≤ 200 chars. Not stable; for humans only. |
+| `details` | no | Free-form object with provider-specific debugging context. |
+
+Clients **MUST** branch on `type` (and optionally `code`), never on `message`.
+
+## Canonical types and HTTP mapping
+
+| `type` | HTTP | When |
+|---|---|---|
+| `invalid_request` | 400 | Malformed JSON, missing required fields, invalid values. |
+| `unauthorized` | 401 | Missing or invalid credentials. |
+| `scope_denied` | 403 | Caller authenticated but not permitted for this user/scope. |
+| `not_found` | 404 | Memory id does not exist or belongs to another user. |
+| `unsupported_capability` | 405 | Verb or feature not advertised in `/capabilities`. |
+| `payload_too_large` | 413 | Body exceeds `max_text_bytes` or server limit. |
+| `rate_limited` | 429 | Provider or server quota exceeded. |
+| `provider_error` | 502 | Upstream provider returned an unexpected error. |
+| `provider_unavailable` | 503 | Upstream provider currently unreachable. |
+| `ingestion_timeout` | 504 | Provider acknowledged but did not commit in time. |
+| `internal_error` | 500 | Catch-all for unexpected server faults. |
+
+## Retry semantics
+
+| `type` | Retry? | Backoff |
+|---|---|---|
+| `rate_limited` | yes | Honor `Retry-After` header if present, else exponential. |
+| `provider_unavailable` | yes | Exponential, jittered. |
+| `ingestion_timeout` | yes (idempotent ops only) | Linear with idempotency key. |
+| `provider_error` | maybe | Only if `details.transient: true`. |
+| All others | no | Fix the request. |
+
+## Idempotency
+
+`POST /memories` accepts an optional `Idempotency-Key` header. Servers that support it MUST advertise `features.idempotency: true` in `/capabilities` (added in 0.1.x — see [changelog](/specification/0.1/changelog)).

@@ -1,0 +1,85 @@
+---
+title: "omp-server"
+description: "The reference FastAPI implementation of the OMP 0.1 spec."
+---
+
+`omp-server` is the reference HTTP server for OMP. It implements the [OMP 0.1 OpenAPI spec](/specification/0.1/openapi) 1:1 over FastAPI.
+
+## Install and run
+
+```bash
+pip install "openmem[server]"
+
+export OMP_PROVIDER=postgres
+export POSTGRES_URL=postgresql://localhost/omp
+
+omp-server --host 0.0.0.0 --port 8080
+```
+
+On startup the server prints:
+
+```
+omp-server: serving postgres at http://0.0.0.0:8080
+```
+
+## CLI flags
+
+| Flag | Default | Notes |
+|---|---|---|
+| `--host` | `127.0.0.1` | Bind address. |
+| `--port` | `8080` | TCP port (1–65535). |
+| `--max-request-bytes` | `1048576` | Hard request body cap. Returns `413` before parsing. |
+| `--log-level` | `info` | One of `debug`, `info`, `warning`, `error`. |
+| `--version` | — | Prints version and exits. |
+| `--help` | — | Prints usage and exits. |
+
+Provider config is read from environment variables (see [Providers](/providers)).
+
+## Endpoints
+
+The server exposes:
+
+- The 9 OMP verbs at their canonical paths (see [Spec Overview](/specification/0.1/overview)).
+- `GET /healthz` — liveness, returns `{"status": "ok"}`.
+
+It also serves the auto-generated OpenAPI doc at `/openapi.json` and Swagger UI at `/docs`.
+
+## Operational notes
+
+<Warning>
+`omp-server` 0.5.0 ships **without authentication** and is intended for **trusted-network deployment only**. Auth is deferred to a future minor release. Front it with a reverse proxy (Caddy, nginx, Cloudflare Access, Tailscale, etc.) that performs auth, TLS, and rate limiting.
+</Warning>
+
+- **Logging.** One INFO line per request: `<iso8601> INFO <method> <path> <status> <latency_ms>ms req=<id>`.
+- **Request IDs.** `X-Request-Id` is echoed if it matches `^[A-Za-z0-9._\-]{1,64}$`, otherwise the server generates one.
+- **Limits.** Bodies above `--max-request-bytes` get `413 PayloadTooLarge` **before** Pydantic parsing.
+- **Errors.** All errors use the canonical [error envelope](/specification/0.1/errors).
+
+## Docker
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e OMP_PROVIDER=postgres \
+  -e POSTGRES_URL=postgresql://host.docker.internal/omp \
+  ghcr.io/openmem/omp-server:0.5.0
+```
+
+(Image publishing is on the immediate roadmap — see [RFCs](/community/rfcs).)
+
+## Embedding
+
+You can embed the FastAPI app in your own ASGI stack:
+
+```python
+from openmem.server import create_app, OmpServerConfig
+
+app = create_app(OmpServerConfig(
+    provider="postgres",
+    postgres_url="postgresql://...",
+    port=8080,
+))
+```
+
+## Source
+
+[github.com/openmem/omp/tree/main/sdk-python/openmem/server](https://github.com/openmem/omp/tree/main/sdk-python/openmem/server)
