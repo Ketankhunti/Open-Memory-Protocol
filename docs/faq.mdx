@@ -45,7 +45,7 @@ Yes — every verb is a single HTTP call against a JSON OpenAPI spec. See [OpenA
 
 ## What if my provider doesn't implement OMP natively?
 
-Use a translation adapter. The SDK ships with adapters for Mem0, Supermemory, and Postgres + pgvector today. More are planned — see [Providers](/providers). Writing a new adapter is straightforward — see [Contributing](/community/contributing).
+Use a translation adapter. The SDK ships with adapters for Postgres + pgvector (native reference), Mem0, Supermemory, and Letta today, plus a `passthrough` adapter for any OMP-speaking endpoint. More are planned — see [Providers](/providers). Writing a new adapter is straightforward — see [Contributing](/community/contributing).
 
 ## How do I contribute?
 

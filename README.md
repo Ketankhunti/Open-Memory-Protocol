@@ -28,13 +28,15 @@ print(ctx.text)
 
 ## Provider matrix
 
-| Provider              | Mode            | Status        |
-| --------------------- | --------------- | ------------- |
-| Postgres + pgvector   | Native (ref)    | 🟢 Ready (M1) |
-| Native OMP endpoints  | Passthrough     | 🟡 Stub (M2)  |
-| Mem0                  | Translation     | 🔜 M2         |
-| Supermemory           | Translation     | 🔜 M2         |
-| Letta                 | Translation     | 🔜 M2         |
+| Provider              | Mode             | Status     |
+| --------------------- | ---------------- | ---------- |
+| Postgres + pgvector   | Native (ref)     | 🟢 Stable  |
+| Native OMP endpoints  | Passthrough      | 🟢 Stable  |
+| Mem0                  | Translation      | 🟢 Stable  |
+| Supermemory           | Translation      | 🟢 Stable  |
+| Letta                 | Translation      | 🟢 Stable  |
+
+Live capability advertisement is authoritative — every adapter exposes its real verb set and feature flags via `mem.capabilities()` and `GET /capabilities` on `omp-server`. See [docs/providers.mdx](docs/providers.mdx) for the per-feature matrix.
 
 ## Documents
 
